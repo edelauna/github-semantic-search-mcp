@@ -1,14 +1,14 @@
 import { env, createExecutionContext } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Result } from "../../src/types/github.graphql.types";
-import { process } from '../../src/steps/tree.step';
+import { processTree } from '../../src/steps/tree.step';
 import { RepoEntry } from "../../src/types/types";
 
 const setup = async () => {
   await env.DB.exec("INSERT INTO repo(owner, name) VALUES ('testOwner', 'testRepo')");
 }
 
-describe('process', () => {
+describe('processTree', () => {
   let mockCtx: ExecutionContext;
 
   beforeEach(() => {
@@ -19,7 +19,7 @@ describe('process', () => {
     mockCtx = createExecutionContext()
   });
 
-  it('processes new tree data correctly', async () => {
+  it('processTreees new tree data correctly', async () => {
     // Set up mock data
     const owner = 'testOwner';
     const repo = 'testRepo';
@@ -43,9 +43,9 @@ describe('process', () => {
     await env.DB.exec('INSERT INTO repo_entry (repo_id, oid, path, type) ' +
       "VALUES (1, 'rootOid', 'root', 'tree')"
     );
-    // Run the process function
+    // Run the processTree function
 
-    const result = await process(env, mockCtx, owner, repo, treeData, pathMap);
+    const result = await processTree(env, mockCtx, owner, repo, treeData, pathMap);
 
     // Assertions
 
@@ -95,8 +95,8 @@ describe('process', () => {
     //   "VALUES (100, 'oldEntryOid', 'oldFile', 'blob')"
     // );
 
-    // Run the process function
-    const result = await process(env, mockCtx, owner, repo, treeData, pathMap);
+    // Run the processTree function
+    const result = await processTree(env, mockCtx, owner, repo, treeData, pathMap);
 
     // Assertions
     expect(result).toEqual(new Map());
@@ -131,7 +131,7 @@ describe('process', () => {
 
     const pathMap = new Map([['HEAD:', '/']]);
 
-    await expect(() => process(env, mockCtx, owner, repo, treeData, pathMap))
+    await expect(() => processTree(env, mockCtx, owner, repo, treeData, pathMap))
       .rejects.toThrow('Missing repoId for (owner, name) -> (testOwner, testRepo)');
   });
 });

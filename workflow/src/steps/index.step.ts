@@ -2,7 +2,7 @@ import { WorkflowEvent } from "cloudflare:workers";
 import { IndexWorkflowParams } from "../workflows/index-repo.workflow";
 import { wait } from "../utils/wait";
 import { fetchTrees } from "./github.step";
-import { process } from "./tree.step";
+import { processTree } from "./tree.step";
 
 const waitOnComplete = async (env: Env, parentInstanceId: string, instances: string[],) => {
   const terminalStates = ["errored",
@@ -60,7 +60,7 @@ export const indexStep = async (env: Env, ctx: ExecutionContext, event: Workflow
 
   if (childWorkflows.length === 0) {
     const [pathMap, treeData] = await fetchTrees(env, owner, repo, new Map(shas))
-    const newPathMap = await process(env, ctx, owner, repo, treeData, pathMap)
+    const newPathMap = await processTree(env, ctx, owner, repo, treeData, pathMap)
     childWorkflows = await spawnIndexChildWorkflow(env, newPathMap, owner, repo)
   }
 

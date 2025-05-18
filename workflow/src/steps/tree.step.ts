@@ -38,7 +38,7 @@ const checkForDeltas = async (env: Env, ctx: ExecutionContext, newTreeData: Tree
   return oldTreeIds;
 }
 
-export const process = async (
+export const processTree = async (
   env: Env,
   ctx: ExecutionContext,
   owner: string,
