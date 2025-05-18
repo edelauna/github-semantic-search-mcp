@@ -1,0 +1,20 @@
+{
+  "name": "workflow",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --ip=0.0.0.0",
+    "start": "wrangler dev",
+    "test": "vitest",
+    "coverage": "vitest run --coverage",
+    "cf-typegen": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.8.24",
+    "@types/node": "^22.15.10",
+    "typescript": "^5.5.2",
+    "vitest": "~3.0.0",
+    "wrangler": "^4.14.1"
+  }
+}
