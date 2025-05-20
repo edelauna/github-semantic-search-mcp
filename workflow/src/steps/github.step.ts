@@ -89,3 +89,38 @@ const makeBatchGraphQLRequest = async (env: Env, query: string, variables: Fetch
   }
   throw new Error('Unexpected error in makeBatchGraphQLRequest');
 }
+
+
+const buildTextQuery = (oids: string[]) => {
+  const queryParts = []
+  queryParts.push(`
+    query($owner: String!, $repo: String!) {
+      repository(owner: $owner, name: $repo) {
+    `.trim()
+  )
+  oids.forEach((oid, index) => {
+    const batchId = `batch${index}`;
+    queryParts.push(`
+      ${batchId}: object(oid: "${oid}") {
+        __typename
+        ... on Blob {
+          text
+          oid
+          isBinary
+        }
+      }
+      `.trim()
+    )
+  })
+  queryParts.push('}}')
+  return queryParts.join('')
+}
+
+export const fetchText = (env: Env, owner: string, repo: string, oids: string[]) => {
+  const query = buildTextQuery(oids)
+  const variables = {
+    owner,
+    repo
+  }
+  return makeBatchGraphQLRequest(env, query, variables)
+}
