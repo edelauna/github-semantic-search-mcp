@@ -6,6 +6,8 @@ const compareAndPrune = (env: Env, ctx: ExecutionContext, oldTreeIds: Map<string
 
   const stmt = env.DB.prepare('DELETE FROM repo_entry where id = ?')
   const batch = []
+  console.log('New Ids: ', newIds)
+  console.log('oldTreeIds: ', oldTreeIds)
   for (const [oid, oldItem] of oldTreeIds) {
     if (!newIds.has(oid)) {
       batch.push(stmt.bind(oldItem.id))
@@ -18,17 +20,27 @@ const compareAndPrune = (env: Env, ctx: ExecutionContext, oldTreeIds: Map<string
 const fetchCurrentTreeFromDb = async (env: Env, path: string, owner: string, repo: string): Promise<Map<string, RepoEntry>> => {
   // Find the parent tree node
   const parentPath = path.replace(/\/$/, '');
+  let result;
 
-  const { results } = await env.DB.prepare(
-    'SELECT id, repo_id, oid, path, type, parent_repo_entry ' +
-    'FROM repo_entry ' +
-    'WHERE parent_repo_entry = (SELECT repo_entry.id ' +
-    'FROM repo_entry ' +
-    'JOIN repo ON repo.id = repo_entry.repo_id ' +
-    'WHERE repo.owner = ? AND repo.name = ? AND repo_entry.path = ?)'
-  ).bind(owner, repo, parentPath).run<RepoEntry>();
+  if (parentPath) {
+    result = await env.DB.prepare(
+      'SELECT id, repo_id, oid, path, type, parent_repo_entry ' +
+      'FROM repo_entry ' +
+      'WHERE parent_repo_entry = (SELECT repo_entry.id ' +
+      'FROM repo_entry ' +
+      'JOIN repo ON repo.id = repo_entry.repo_id ' +
+      'WHERE repo.owner = ? AND repo.name = ? AND repo_entry.path = ?)'
+    ).bind(owner, repo, parentPath).run<RepoEntry>();
+  } else {
+    result = await env.DB.prepare(
+      'SELECT repo_entry.id, repo_id, oid, path, type, parent_repo_entry ' +
+      'FROM repo_entry ' +
+      'JOIN repo ON repo.id = repo_entry.repo_id ' +
+      'WHERE repo.owner = ? AND repo.name = ? AND parent_repo_entry IS NULL'
+    ).bind(owner, repo).run<RepoEntry>();
+  }
 
-  return new Map(results.map(child => [child.oid, child]));
+  return new Map(result.results.map(child => [child.oid, child]));
 }
 
 const checkForDeltas = async (env: Env, ctx: ExecutionContext, newTreeData: Tree, path: string, owner: string, repo: string): Promise<Map<string, RepoEntry>> => {

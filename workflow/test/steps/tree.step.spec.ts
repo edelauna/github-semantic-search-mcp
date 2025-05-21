@@ -91,9 +91,9 @@ describe('processTree', () => {
     const pathMap = new Map([['HEAD:', '/']]);
 
     await setup();
-    // await env.DB.exec('INSERT INTO repo_entry (repo_id, oid, path, type) ' +
-    //   "VALUES (100, 'oldEntryOid', 'oldFile', 'blob')"
-    // );
+    await env.DB.exec('INSERT INTO repo_entry (repo_id, oid, path, type) ' +
+      "VALUES (1, 'oldEntryOid', '/file1', 'blob')"
+    );
 
     // Run the processTree function
     const result = await processTree(env, mockCtx, owner, repo, treeData, pathMap);
