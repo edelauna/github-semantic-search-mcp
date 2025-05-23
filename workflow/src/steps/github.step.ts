@@ -91,17 +91,16 @@ const makeBatchGraphQLRequest = async (env: Env, query: string, variables: Fetch
 }
 
 
-const buildTextQuery = (oids: string[]) => {
+const buildTextQuery = (oidMap: { [key: string]: string }) => {
   const queryParts = []
   queryParts.push(`
     query($owner: String!, $repo: String!) {
       repository(owner: $owner, name: $repo) {
     `.trim()
   )
-  oids.forEach((oid, index) => {
-    const batchId = `batch${index}`;
+  Object.entries(oidMap).forEach(([id, oid]) => {
     queryParts.push(`
-      ${batchId}: object(oid: "${oid}") {
+      ${id}: object(oid: "${oid}") {
         __typename
         ... on Blob {
           text
@@ -116,8 +115,8 @@ const buildTextQuery = (oids: string[]) => {
   return queryParts.join('')
 }
 
-export const fetchText = (env: Env, owner: string, repo: string, oids: string[]) => {
-  const query = buildTextQuery(oids)
+export const fetchText = (env: Env, owner: string, repo: string, oidMap: { [key: string]: string }) => {
+  const query = buildTextQuery(oidMap)
   const variables = {
     owner,
     repo

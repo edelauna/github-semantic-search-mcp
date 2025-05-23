@@ -149,10 +149,10 @@ describe('github step specs', () => {
 
       const owner = 'edelauna';
       const repo = 'discord-bot-ai';
-      const oids = ['50c1e8c007b34cf5ad0ac62047310b59507da70f', 'c2b4f00ae95a5a454537a7c2b1af76a74ef1b485'];
+      const oidMap = { '1': '50c1e8c007b34cf5ad0ac62047310b59507da70f', '2': 'c2b4f00ae95a5a454537a7c2b1af76a74ef1b485' };
 
       // Call the function
-      const result = await fetchText(env, owner, repo, oids);
+      const result = await fetchText(env, owner, repo, oidMap);
 
       // Check the correct structure of the result
       expect(result).toEqual(mockResponse);

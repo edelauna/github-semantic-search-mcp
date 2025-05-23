@@ -21,7 +21,7 @@ export interface Tree extends GitObject {
 }
 
 // Blob interface
-interface GithubObjectBlob extends GitObject {
+export interface GithubObjectBlob extends GitObject {
   __typename: 'Blob';
   text?: string;
   isBinary?: boolean;

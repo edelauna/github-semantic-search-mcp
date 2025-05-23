@@ -1,6 +1,6 @@
 export const fetchTextFixture = () => ({
   repository: {
-    batch0: {
+    "1": {
       __typename: 'Blob',
       text: 'FROM node:18\n' +
         '# app\n' +
@@ -22,7 +22,7 @@ export const fetchTextFixture = () => ({
       oid: '50c1e8c007b34cf5ad0ac62047310b59507da70f',
       isBinary: false
     },
-    batch1: {
+    "2": {
       __typename: 'Blob',
       text: 'Creative Commons Attribution 4.0 International (CC BY-NC-SA 4.0)\n' +
         'Human readable: https://creativecommons.org/licenses/by-nc-sa/4.0/\n' +
