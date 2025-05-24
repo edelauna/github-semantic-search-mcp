@@ -17,7 +17,6 @@ const waitOnComplete = async (env: Env, parentInstanceId: string, instances: str
     if (!terminalStates.includes(status)) {
       instances.push(newInstance.id)
     } else {
-      await env.WORKFLOW_STATE.put(parentInstanceId, instances.join(","))
       console.log(`[+]\tWorkflow:${newInstance.id}:output:`, output)
     }
   }
@@ -65,6 +64,8 @@ export const indexStep = async (env: Env, ctx: ExecutionContext, event: Workflow
   }
 
   await waitOnComplete(env, instanceId, childWorkflows)
+
+  // TODO: call embed workflow once parent has completed
 
   return shas.length
 }

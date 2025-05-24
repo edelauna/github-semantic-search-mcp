@@ -1,16 +1,16 @@
 import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
+import { doEmbeddings } from '../steps/embed.step';
 
 interface WorkflowParams {
+  owner: string,
+  repo: string,
 }
 
 export class EmbedWorkflow extends WorkflowEntrypoint<Env, WorkflowParams> {
 
-  async run(event: WorkflowEvent<WorkflowParams>, step: WorkflowStep): Promise<number> {
-    // Run the index activity
-    const reposProcessed = await step.do('run index activity', async () => {
-      return 1 // indexActivities.run();
-    });
+  async run(event: WorkflowEvent<WorkflowParams>, step: WorkflowStep): Promise<void> {
+    const { owner, repo } = event.payload
 
-    return reposProcessed;
+    await step.do('run embed activity', async () => await doEmbeddings(this.env, owner, repo))
   }
 }
