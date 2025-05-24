@@ -23,3 +23,19 @@ window.crypto.subtle
 ```
 
 Can copy the following object removing attributes `ext`,`ops`
+
+#### Vectorize
+
+Main Index
+`npx wrangler vectorize create github-semantic-search-index --dimensions=384 --metric=cosine`
+
+Metadata Index
+Keeping track of oid, branch, owner, repo, path
+
+```sh
+npx wrangler vectorize create-metadata-index github-semantic-search-index --property-name=oid --type=string
+npx wrangler vectorize create-metadata-index github-semantic-search-index --property-name=branch --type=string
+npx wrangler vectorize create-metadata-index github-semantic-search-index --property-name=owner --type=string
+npx wrangler vectorize create-metadata-index github-semantic-search-index --property-name=repo --type=string
+npx wrangler vectorize create-metadata-index github-semantic-search-index --property-name=path --type=string
+```
