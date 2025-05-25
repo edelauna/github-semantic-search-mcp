@@ -3,12 +3,12 @@ import * as GithubSteps from '../../src/steps/github.step'
 import { fetchTextFixture } from '../steps/fixtures/github.step.spec.fixture';
 import { Result } from '../../src/types/github.graphql.types';
 import { RepoEntry } from '../../src/types/types';
-import { createEmbeddings } from '../../src/services/embed.service';
+import { createEmbeddings, EMBEDDING_MODEL, branch } from '../../src/services/embed.service';
 
 const fixture = fetchTextFixture()
 
 const mockFetchText = vi.fn(
-  async (_env: Env, _owner: string, _repo: string, oidMap: { [key: string]: string; }) => fixture as Result
+  async (_owner: string, _repo: string, oidMap: { [key: string]: string }, _githubTokenRef: string) => fixture as Result
 )
 
 vi.spyOn(GithubSteps, 'fetchText').mockImplementation(mockFetchText)
@@ -34,6 +34,7 @@ describe('createEmbeddings', () => {
   ];
   const owner = 'testOwner';
   const repo = 'testRepo';
+  const githubTokenRef = 'encrypted-token-ref';
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -53,21 +54,21 @@ describe('createEmbeddings', () => {
   });
 
   it('should fetch text content for the given oids', async () => {
-    await createEmbeddings(mockEnv as any, owner, repo, mockRecords);
+    await createEmbeddings(mockEnv as any, owner, repo, mockRecords, githubTokenRef);
 
-    expect(mockFetchText).toHaveBeenCalledWith(mockEnv, owner, repo, { '1': 'oid1', '2': 'oid2' });
+    expect(mockFetchText).toHaveBeenCalledWith(owner, repo, { '1': 'oid1', '2': 'oid2' }, githubTokenRef);
   });
 
   it('should generate embeddings for the tokenized documents', async () => {
-    await createEmbeddings(mockEnv as any, owner, repo, mockRecords);
+    await createEmbeddings(mockEnv as any, owner, repo, mockRecords, githubTokenRef);
 
     expect(mockEnv.AI.run).toHaveBeenCalledTimes(2);
-    expect(mockEnv.AI.run).toHaveBeenNthCalledWith(1, "@cf/baai/bge-small-en-v1.5", { text: [fixture.repository[2].text + '\n'] });
-    expect(mockEnv.AI.run).toHaveBeenNthCalledWith(2, "@cf/baai/bge-small-en-v1.5", { text: [fixture.repository[1].text + '\n'] });
+    expect(mockEnv.AI.run).toHaveBeenNthCalledWith(1, EMBEDDING_MODEL, { text: [fixture.repository[2].text + '\n'] });
+    expect(mockEnv.AI.run).toHaveBeenNthCalledWith(2, EMBEDDING_MODEL, { text: [fixture.repository[1].text + '\n'] });
   });
 
   it('should upload tokenized document text to R2', async () => {
-    await createEmbeddings(mockEnv as any, owner, repo, mockRecords);
+    await createEmbeddings(mockEnv as any, owner, repo, mockRecords, githubTokenRef);
 
     expect(mockEnv.github_semantic_search_bucket.put).toHaveBeenCalledTimes(2);
     expect(mockEnv.github_semantic_search_bucket.put).toHaveBeenNthCalledWith(
@@ -77,7 +78,7 @@ describe('createEmbeddings', () => {
   });
 
   it('should insert embeddings into Vectorize with correct metadata', async () => {
-    await createEmbeddings(mockEnv as any, owner, repo, mockRecords);
+    await createEmbeddings(mockEnv as any, owner, repo, mockRecords, githubTokenRef);
 
     expect(mockEnv.VECTORIZE.insert).toHaveBeenCalledTimes(2);
     const expectedVectors = [[
@@ -97,7 +98,7 @@ describe('createEmbeddings', () => {
   });
 
   it('should return the original records', async () => {
-    const result = await createEmbeddings(mockEnv as any, owner, repo, mockRecords);
+    const result = await createEmbeddings(mockEnv as any, owner, repo, mockRecords, githubTokenRef);
     expect(result).toEqual(mockRecords);
   });
 });

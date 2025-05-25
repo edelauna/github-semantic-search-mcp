@@ -5,14 +5,16 @@ import { makeDocuments, TokenizedDocument } from "../services/document.service"
 import { generateKey } from "../utils/shared-key"
 
 // TODO: parameterize this
-const branch = 'HEAD'
+export const branch = 'HEAD'
 
-export const createEmbeddings = async (env: Env, owner: string, repo: string, records: RepoEntry[]) => {
+export const EMBEDDING_MODEL = "@cf/baai/bge-small-en-v1.5"
+
+export const createEmbeddings = async (env: Env, owner: string, repo: string, records: RepoEntry[], githubTokenRef: string) => {
   const oidMap = records.reduce((obj, { id, oid }) => {
     obj[`${id}`] = oid
     return obj
   }, {} as { [key: string]: string })
-  const corpus = await fetchText(env, owner, repo, oidMap)
+  const corpus = await fetchText(owner, repo, oidMap, githubTokenRef)
   const tokenizedDocumentMap = Object.entries(corpus.repository || {}).reduce((arr: [string, TokenizedDocument[]][], [key, value]) => {
     const data = value as GithubObjectBlob
     if (data.isBinary === false && data.text) arr.push([key, makeDocuments(data.text)])
@@ -25,7 +27,7 @@ export const createEmbeddings = async (env: Env, owner: string, repo: string, re
     const [id, docs] = tokenizedDocumentMap.pop()!
     const { path, oid } = records.filter(x => x.id == parseInt(id))![0]
     const embeddingPromise = env.AI.run(
-      "@cf/baai/bge-small-en-v1.5",
+      EMBEDDING_MODEL,
       {
         text: docs.map(d => d.text),
       }
