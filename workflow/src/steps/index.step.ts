@@ -4,7 +4,7 @@ import { wait } from "../utils/wait";
 import { fetchTrees } from "./github.step";
 import { processTree } from "./tree.step";
 
-const waitOnComplete = async (env: Env, parentInstanceId: string, instances: string[],) => {
+const waitOnComplete = async (env: Env, instances: string[],) => {
   const terminalStates = ["errored",
     "terminated", // user terminated the instance while it was running
     "complete"
@@ -22,7 +22,7 @@ const waitOnComplete = async (env: Env, parentInstanceId: string, instances: str
   }
 }
 
-const spawnIndexChildWorkflow = async (env: Env, pathMap: Map<string, string>, owner: string, repo: string) => {
+const spawnIndexChildWorkflow = async (env: Env, pathMap: Map<string, string>, owner: string, repo: string, githubTokenRef: string) => {
   const newPathMapAsArray = Array.from(pathMap.entries())
 
   const batch = newPathMapAsArray.reduce((acc, [path, sha], index) => {
@@ -33,6 +33,7 @@ const spawnIndexChildWorkflow = async (env: Env, pathMap: Map<string, string>, o
       params: {
         owner,
         repo,
+        githubTokenRef,
         pathMap: {}
       }
     }
@@ -52,20 +53,23 @@ const spawnIndexChildWorkflow = async (env: Env, pathMap: Map<string, string>, o
 
 export const indexStep = async (env: Env, ctx: ExecutionContext, event: WorkflowEvent<IndexWorkflowParams>) => {
   const { instanceId } = event
-  const { owner, repo } = event.payload
+  const { owner, repo, githubTokenRef } = event.payload
   const shas = Object.entries(event.payload.pathMap)
 
   let childWorkflows = (await env.WORKFLOW_STATE.get(instanceId))?.split(',') ?? []
 
   if (childWorkflows.length === 0) {
-    const [pathMap, treeData] = await fetchTrees(env, owner, repo, new Map(shas))
+    const [pathMap, treeData] = await fetchTrees(owner, repo, new Map(shas), githubTokenRef)
     const newPathMap = await processTree(env, ctx, owner, repo, treeData, pathMap)
-    childWorkflows = await spawnIndexChildWorkflow(env, newPathMap, owner, repo)
+    childWorkflows = await spawnIndexChildWorkflow(env, newPathMap, owner, repo, githubTokenRef)
+    ctx.waitUntil(env.WORKFLOW_STATE.put(instanceId, childWorkflows.join(',')))
   }
 
-  await waitOnComplete(env, instanceId, childWorkflows)
+  await waitOnComplete(env, childWorkflows)
 
   // TODO: call embed workflow once parent has completed
+
+  ctx.waitUntil(env.WORKFLOW_STATE.delete(instanceId))
 
   return shas.length
 }

@@ -20,12 +20,16 @@ const mockTreeResponse: Result = {
   },
 };
 
+const kvPutSpy = vi.spyOn(env.WORKFLOW_STATE, 'put')
+const kvDeleteSpy = vi.spyOn(env.WORKFLOW_STATE, 'delete')
+
 describe('indexStep', () => {
   let mockEnv: Env;
   const instanceId = 'test-instance-id';
   const owner = 'test-owner';
   const repo = 'test-repo';
   const shas = { path1: 'sha1', path2: 'sha2' };
+  const githubTokenRef = 'encrypted-token-ref';
   const ctx = createExecutionContext();
 
   beforeEach(async () => {
@@ -56,14 +60,24 @@ describe('indexStep', () => {
 
     const result = await indexStep(mockEnv, ctx, {
       instanceId,
-      payload: { owner, repo, pathMap: shas },
+      payload: { owner, repo, pathMap: shas, githubTokenRef },
       timestamp: new Date(),
     } as WorkflowEvent<IndexWorkflowParams>);
 
     // Assertions
-    expect(fetchSpy).toHaveBeenCalledWith(mockEnv, owner, repo, expect.any(Map));
+    expect(fetchSpy).toHaveBeenCalledWith(owner, repo, expect.any(Map), githubTokenRef);
     expect(processSpy).toHaveBeenCalledWith(mockEnv, ctx, owner, repo, mockTreeResponse, expect.any(Map));
-    expect(mockEnv.INDEX_WORKFLOW.createBatch).toHaveBeenCalled();
+    expect(mockEnv.INDEX_WORKFLOW.createBatch).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({
+        params: expect.objectContaining({
+          owner,
+          repo,
+          githubTokenRef,
+        })
+      })
+    ]));
+    expect(kvPutSpy).toHaveBeenCalledWith(instanceId, 'child-workflow-1');
+    expect(kvDeleteSpy).toHaveBeenCalledWith(instanceId);
     expect(result).toBe(Object.keys(shas).length);
   });
 
@@ -81,14 +95,14 @@ describe('indexStep', () => {
     // Execute the indexStep function
     const result = await indexStep(mockEnv, ctx, {
       instanceId,
-      payload: { owner, repo, pathMap: shas },
+      payload: { owner, repo, pathMap: shas, githubTokenRef },
       timestamp: new Date(),
     } as WorkflowEvent<IndexWorkflowParams>);
 
     // Assertions
     expect(result).toBe(Object.keys(shas).length);
-
     expect(mockEnv.INDEX_WORKFLOW.createBatch).not.toHaveBeenCalled();
+    expect(kvPutSpy).not.toHaveBeenCalled();
   });
 
   it('handles errors in fetchTrees', async () => {
@@ -98,15 +112,16 @@ describe('indexStep', () => {
     // Execute the indexStep function and expect it to throw an error
     await expect(indexStep(mockEnv, ctx, {
       instanceId,
-      payload: { owner, repo, pathMap: shas },
+      payload: { owner, repo, pathMap: shas, githubTokenRef },
       timestamp: new Date(),
     } as WorkflowEvent<IndexWorkflowParams>)).rejects.toThrow('Fetch error');
 
     // Assertions
-    expect(fetchSpy).toHaveBeenCalledWith(mockEnv, owner, repo, expect.any(Map));
+    expect(fetchSpy).toHaveBeenCalledWith(owner, repo, expect.any(Map), githubTokenRef);
     expect(processSpy).not.toHaveBeenCalled();
-
     expect(mockEnv.INDEX_WORKFLOW.createBatch).not.toHaveBeenCalled();
+    expect(kvPutSpy).not.toHaveBeenCalled();
+    expect(kvDeleteSpy).not.toHaveBeenCalled();
   });
 
   it('handles errors in processTree', async () => {
@@ -116,14 +131,15 @@ describe('indexStep', () => {
     // Execute the indexStep function and expect it to throw an error
     await expect(indexStep(mockEnv, ctx, {
       instanceId,
-      payload: { owner, repo, pathMap: shas },
+      payload: { owner, repo, pathMap: shas, githubTokenRef },
       timestamp: new Date(),
     } as WorkflowEvent<IndexWorkflowParams>)).rejects.toThrow('Process error');
 
     // Assertions
-
-    expect(fetchSpy).toHaveBeenCalledWith(mockEnv, owner, repo, expect.any(Map));
+    expect(fetchSpy).toHaveBeenCalledWith(owner, repo, expect.any(Map), githubTokenRef);
     expect(processSpy).toHaveBeenCalledWith(mockEnv, ctx, owner, repo, mockTreeResponse, expect.any(Map));
     expect(mockEnv.INDEX_WORKFLOW.createBatch).not.toHaveBeenCalled();
+    expect(kvPutSpy).not.toHaveBeenCalled();
+    expect(kvDeleteSpy).not.toHaveBeenCalled();
   });
 });
