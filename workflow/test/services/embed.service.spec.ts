@@ -3,7 +3,7 @@ import * as GithubSteps from '../../src/steps/github.step'
 import { fetchTextFixture } from '../steps/fixtures/github.step.spec.fixture';
 import { Result } from '../../src/types/github.graphql.types';
 import { RepoEntry } from '../../src/types/types';
-import { createEmbeddings, EMBEDDING_MODEL, branch } from '../../src/services/embed.service';
+import { createEmbeddings, EMBEDDING_MODEL } from '../../src/services/embed.service';
 
 const fixture = fetchTextFixture()
 
@@ -29,8 +29,8 @@ interface MockEnv {
 describe('createEmbeddings', () => {
   let mockEnv: MockEnv;
   const mockRecords: RepoEntry[] = [
-    { id: 1, repo_id: 1, oid: 'oid1', path: 'file1.txt', type: 'blob' },
-    { id: 2, repo_id: 1, oid: 'oid2', path: 'dir/file2.txt', type: 'blob' },
+    { id: 1, repo_id: 1, oid: 'oid1', path: '/file1.txt', type: 'blob' },
+    { id: 2, repo_id: 1, oid: 'oid2', path: '/dir/file2.txt', type: 'blob' },
   ];
   const owner = 'testOwner';
   const repo = 'testRepo';
@@ -85,13 +85,13 @@ describe('createEmbeddings', () => {
       {
         id: '/testOwner/testRepo/blob/HEAD/file1.txt#L1-L18',
         values: [0.1, 0.2],
-        metadata: { oid: 'oid1', branch: 'HEAD', owner: 'testOwner', repo: 'testRepo', path: 'file1.txt' },
+        metadata: { oid: 'oid1', branch: 'HEAD', owner: 'testOwner', repo: 'testRepo', path: '/file1.txt' },
       },
     ], [
       {
         id: '/testOwner/testRepo/blob/HEAD/dir/file2.txt#L1-L36',
         values: [0.1, 0.2],
-        metadata: { oid: 'oid2', branch: 'HEAD', owner: 'testOwner', repo: 'testRepo', path: 'dir/file2.txt' },
+        metadata: { oid: 'oid2', branch: 'HEAD', owner: 'testOwner', repo: 'testRepo', path: '/dir/file2.txt' },
       },
     ]];
     expectedVectors.map(v => expect(mockEnv.VECTORIZE.insert).toHaveBeenCalledWith(v))

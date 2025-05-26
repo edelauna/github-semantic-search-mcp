@@ -6,7 +6,7 @@ export type TokenizedDocument = {
   tokenCount: number
 }
 
-const DOCUMENTS_MAX_TOKENS = 500; // max input is 512, but gpt-tokenizer is not for bpe model, hopefully no overflow
+export const DOCUMENTS_MAX_TOKENS = 500; // max input is 512, but gpt-tokenizer is not for bpe model, hopefully no overflow
 
 const countTokens = (message: string): number => {
   return message.trim() === "" ? 0 : encode(message).length;

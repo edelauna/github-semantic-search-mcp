@@ -118,11 +118,19 @@ describe('GitHub Semantic Search Tool', () => {
         data: [[0.1, 0.2, 0.3]]
       });
 
-      // Mock vector search
+      // Mock vector search with metadata and scores
       mockVectorizeQuery.mockResolvedValue({
         matches: [
-          { id: 'file1' },
-          { id: 'file2' }
+          {
+            id: '/owner/repo/blob/HEAD/src/file1.ts#L1-L10',
+            metadata: { path: '/src/file1.ts' },
+            score: 0.95
+          },
+          {
+            id: '/owner/repo/blob/HEAD/src/file2.ts#L5',
+            metadata: { path: '/src/file2.ts' },
+            score: 0.85
+          }
         ]
       });
 
@@ -141,8 +149,21 @@ describe('GitHub Semantic Search Tool', () => {
 
       expect(result.isError).toBe(false);
       expect(result.content[0].text).toContain('Reindexing in progress');
-      expect(result.content[0].text).toContain('Content for file1');
-      expect(result.content[0].text).toContain('Content for file2');
+
+      // Check that results include file paths, URLs and scores
+      const resultText = result.content[0].text;
+      expect(resultText).toContain('File: /src/file1.ts');
+      expect(resultText).toContain('URL: https://github.com/owner/repo/blob/HEAD/src/file1.ts#L1-L10');
+      expect(resultText).toContain('Score: 0.9500');
+      expect(resultText).toContain('File: /src/file2.ts');
+      expect(resultText).toContain('URL: https://github.com/owner/repo/blob/HEAD/src/file2.ts#L5');
+      expect(resultText).toContain('Score: 0.8500');
+
+      // Verify results are sorted by score (highest first)
+      const file1Index = resultText.indexOf('/src/file1.ts');
+      const file2Index = resultText.indexOf('/src/file2.ts');
+      expect(file1Index).toBeLessThan(file2Index);
+
       expect(workflowService.triggerIndexing).toHaveBeenCalledWith('owner', 'repo', 'token', mockEnv);
     });
   });
@@ -165,11 +186,19 @@ describe('GitHub Semantic Search Tool', () => {
         data: [[0.1, 0.2, 0.3]]
       });
 
-      // Mock vector search
+      // Mock vector search with metadata and scores
       mockVectorizeQuery.mockResolvedValue({
         matches: [
-          { id: 'file1' },
-          { id: 'file2' }
+          {
+            id: '/owner/repo/blob/HEAD/src/file1.ts#L1-L10',
+            metadata: { path: '/src/file1.ts' },
+            score: 0.95
+          },
+          {
+            id: '/owner/repo/blob/HEAD/src/file2.ts#L5',
+            metadata: { path: '/src/file2.ts' },
+            score: 0.85
+          }
         ]
       });
 
@@ -187,8 +216,21 @@ describe('GitHub Semantic Search Tool', () => {
       );
 
       expect(result.isError).toBe(false);
-      expect(result.content[0].text).toContain('Content for file1');
-      expect(result.content[0].text).toContain('Content for file2');
+
+      // Check that results include file paths, URLs and scores
+      const resultText = result.content[0].text;
+      expect(resultText).toContain('File: /src/file1.ts');
+      expect(resultText).toContain('URL: https://github.com/owner/repo/blob/HEAD/src/file1.ts#L1-L10');
+      expect(resultText).toContain('Score: 0.9500');
+      expect(resultText).toContain('File: /src/file2.ts');
+      expect(resultText).toContain('URL: https://github.com/owner/repo/blob/HEAD/src/file2.ts#L5');
+      expect(resultText).toContain('Score: 0.8500');
+
+      // Verify results are sorted by score (highest first)
+      const file1Index = resultText.indexOf('/src/file1.ts');
+      const file2Index = resultText.indexOf('/src/file2.ts');
+      expect(file1Index).toBeLessThan(file2Index);
+
       expect(mockAIRun).toHaveBeenCalledWith(EMBEDDING_MODEL, { text: 'test query' });
       expect(mockVectorizeQuery).toHaveBeenCalledWith(
         [0.1, 0.2, 0.3],
@@ -198,7 +240,8 @@ describe('GitHub Semantic Search Tool', () => {
             repo: { $eq: 'repo' },
             branch: { $eq: 'HEAD' }
           },
-          topK: 7
+          topK: 7,
+          returnMetadata: true
         })
       );
     });

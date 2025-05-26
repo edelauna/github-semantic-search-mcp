@@ -69,20 +69,37 @@ export async function handleGitHubSemanticSearch(
         owner: { $eq: owner },
         repo: { $eq: repositoryName },
         branch: { $eq: branch } // todo parameterize this
-      }
+      },
+      returnMetadata: true
     });
 
     // 6. Format response
-    results.matches.forEach(x => x.id)
-    const resultText = await Promise.all(results.matches.map(async match => (await env.github_semantic_search_bucket.get(match.id))?.text()));
+    const resultContents = await Promise.all(results.matches.map(async match => {
+      const content = await env.github_semantic_search_bucket.get(match.id);
+      if (!content) return null;
+
+      // Create GitHub URL
+      const githubUrl = `https://github.com${match.id}`;
+
+      return {
+        content: await content.text(),
+        path: match.metadata?.path,
+        url: githubUrl,
+        score: match.score
+      };
+    }));
+
     const lastUpdated = lastCompleted ? new Date(lastCompleted).toLocaleString() : 'unknown date';
 
     return {
       content: [{
         type: "text",
-        text: `Results from index last updated ${lastUpdated}${needsReindex ? ' (Reindexing in progress)' : ''}:\n\n${resultText.filter(r => r !== undefined).map(r =>
-          `${r}\n`
-        ).join('\n---\n')
+        text: `Results from index last updated ${lastUpdated}${needsReindex ? ' (Reindexing in progress)' : ''}:\n\n${resultContents
+          .filter(r => r !== null)
+          .sort((a, b) => b!.score - a!.score)
+          .map(r =>
+            `File: ${r!.path}\nURL: ${r!.url}\nScore: ${r!.score.toFixed(4)}\n\n${r!.content}\n`
+          ).join('\n---\n')
           }`
       }],
       isError: false
