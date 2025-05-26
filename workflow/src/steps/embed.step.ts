@@ -4,7 +4,7 @@ import { RepoEntry } from "../types/types"
 const BATCH_SIZE = 10
 const CONCURRENCY = 8
 
-export const doEmbeddings = async (env: Env, owner: string, repo: string) => {
+export const doEmbeddings = async (env: Env, owner: string, repo: string, githubTokenRef: string) => {
   let idIndex = 0
   let hasMore = true
   let queue: Promise<RepoEntry[]>[] = []
@@ -23,7 +23,7 @@ export const doEmbeddings = async (env: Env, owner: string, repo: string) => {
       hasMore = false
     } else {
       idIndex = results[results.length - 1].id
-      queue.push(createEmbeddings(env, owner, repo, results))
+      queue.push(createEmbeddings(env, owner, repo, results, githubTokenRef))
     }
 
     if (queue.length >= CONCURRENCY) {

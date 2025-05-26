@@ -4,6 +4,7 @@ import { indexStep } from '../steps/index.step';
 export interface IndexWorkflowParams {
   owner: string,
   repo: string,
+  githubTokenRef: string,
   pathMap: { [keyof: string]: string }
 }
 
