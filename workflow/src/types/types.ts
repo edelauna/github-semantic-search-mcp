@@ -18,3 +18,11 @@ export type RepoEntry = {
   'type': 'blob' | 'tree',
   'parent_repo_entry'?: number,
 }
+
+export type WorkflowRun = {
+  'id': string,
+  'repo_id': number,
+  'status': 'running' | 'completed' | 'failed' | 'cancelled',
+  'created_at': string,
+  'last_updated_at': string,
+}
