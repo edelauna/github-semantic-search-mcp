@@ -1,8 +1,12 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { fetchText, fetchTrees } from '../../src/steps/github.step'
-import { env, fetchMock } from "cloudflare:test"
+import { fetchMock } from "cloudflare:test"
 import { Result, Tree } from "../../src/types/github.graphql.types";
 import { fetchTextFixture } from "./fixtures/github.step.spec.fixture";
+import * as cryptoUtils from '../../src/utils/crpyto.utils';
+
+// Mock the crypto utils
+vi.spyOn(cryptoUtils, 'decryptedString').mockResolvedValue('decrypted-github-token')
 
 const mockTreeResponse: Result = {
   repository: {
@@ -34,6 +38,8 @@ const mockTreeResponse: Result = {
 };
 
 describe('github step specs', () => {
+  const githubTokenRef = 'encrypted-token-ref';
+
   beforeAll(() => {
     fetchMock.activate();
     fetchMock.disableNetConnect();
@@ -64,7 +70,7 @@ describe('github step specs', () => {
       ]);
 
       // Call the function
-      const [pathMap, result] = await fetchTrees(env, owner, repo, shas);
+      const [pathMap, result] = await fetchTrees(owner, repo, shas, githubTokenRef);
 
       // Check the returned pathMap
       expect(pathMap).toEqual(new Map([
@@ -108,11 +114,12 @@ describe('github step specs', () => {
       ]);
 
       // Call the function
-      const [_, result] = await fetchTrees(env, owner, repo, shas);
+      const [_, result] = await fetchTrees(owner, repo, shas, githubTokenRef);
 
       // Assertions
       expect(result).toEqual(mockTreeResponse);
     });
+
     it('should throw an error on GraphQL errors', async () => {
       // Mock the fetch response with GraphQL errors
       fetchMock.get('https://api.github.com')
@@ -130,8 +137,7 @@ describe('github step specs', () => {
       ]);
 
       // Call the function and expect it to throw an error
-
-      await expect(fetchTrees(env, owner, repo, shas)).rejects.toThrow(
+      await expect(fetchTrees(owner, repo, shas, githubTokenRef)).rejects.toThrow(
         'GraphQL errors: [{"message":"GraphQL error"}]'
       );
     });
@@ -152,10 +158,10 @@ describe('github step specs', () => {
       const oidMap = { '1': '50c1e8c007b34cf5ad0ac62047310b59507da70f', '2': 'c2b4f00ae95a5a454537a7c2b1af76a74ef1b485' };
 
       // Call the function
-      const result = await fetchText(env, owner, repo, oidMap);
+      const result = await fetchText(owner, repo, oidMap, githubTokenRef);
 
       // Check the correct structure of the result
       expect(result).toEqual(mockResponse);
     });
   });
-})
+});

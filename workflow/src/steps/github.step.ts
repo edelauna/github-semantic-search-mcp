@@ -1,20 +1,22 @@
+import { env } from "cloudflare:workers";
 import { Result } from "../types/github.graphql.types";
+import { decryptedString } from "../utils/crpyto.utils";
 
 type FetchVariables = {
   owner: string,
   repo: string,
 }
 
-const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql'
+export const GITHUB_GRAPHQL_URL = 'https://api.github.com/graphql'
 
-export const fetchTrees = async (env: Env, owner: string, repo: string, shas: Map<string, string>): Promise<[Map<string, string>, Result]> => {
+export const fetchTrees = async (owner: string, repo: string, shas: Map<string, string>, githubTokenRef: string): Promise<[Map<string, string>, Result]> => {
   const [query, pathMap] = buildQuery(shas);
   const variables = {
     owner,
     repo,
   };
 
-  return [pathMap, await makeBatchGraphQLRequest(env, query, variables)];
+  return [pathMap, await makeBatchGraphQLRequest(query, variables, githubTokenRef)];
 }
 
 const buildQuery = (treeMap: Map<string, string>): [string, Map<string, string>] => {
@@ -51,9 +53,9 @@ const buildQuery = (treeMap: Map<string, string>): [string, Map<string, string>]
   return [queryBuilder, batchMap];
 }
 
-const makeBatchGraphQLRequest = async (env: Env, query: string, variables: FetchVariables, maxRetries: number = 3): Promise<Result> => {
+const makeBatchGraphQLRequest = async (query: string, variables: FetchVariables, githubTokenRef: string, maxRetries: number = 3): Promise<Result> => {
   const headers = {
-    'Authorization': `Bearer ${env.GITHUB_TOKEN}`,
+    'Authorization': `Bearer ${await decryptedString(await env.WORKFLOW_STATE.get(githubTokenRef) ?? '')}`,
     'Content-Type': 'application/json',
     'User-Agent': 'github-semantic-search-app'
   };
@@ -115,11 +117,11 @@ const buildTextQuery = (oidMap: { [key: string]: string }) => {
   return queryParts.join('')
 }
 
-export const fetchText = (env: Env, owner: string, repo: string, oidMap: { [key: string]: string }) => {
+export const fetchText = (owner: string, repo: string, oidMap: { [key: string]: string }, githubTokenRef: string) => {
   const query = buildTextQuery(oidMap)
   const variables = {
     owner,
     repo
   }
-  return makeBatchGraphQLRequest(env, query, variables)
+  return makeBatchGraphQLRequest(query, variables, githubTokenRef)
 }
