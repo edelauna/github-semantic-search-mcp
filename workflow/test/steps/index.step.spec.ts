@@ -39,15 +39,25 @@ describe('indexStep', () => {
       INDEX_WORKFLOW: {
         get: vi.fn(),
         create: vi.fn(),
+        createBatch: vi.fn().mockImplementation((batch: WorkflowInstanceCreateOptions<unknown>[]) => {
+          return batch.map(b => ({ id: b.id }))
+        }),
+      },
+      EMBED_WORKFLOW: {
+        get: vi.fn(),
+        create: vi.fn(),
         createBatch: vi.fn(),
       },
     };
     vi.clearAllMocks();
   });
 
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(async () => {
+    await mockEnv.DB.exec('DELETE FROM repo');
+    vi.restoreAllMocks()
+  })
 
-  it('processes new workflows correctly', async () => {
+  it('processes new workflows correctly and triggers embed workflow', async () => {
     const fetchSpy = vi.spyOn(GithubStep, 'fetchTrees').mockResolvedValue([new Map(Object.entries(shas)), mockTreeResponse])
     const processSpy = vi.spyOn(TreeStep, 'processTree').mockResolvedValue(new Map(Object.entries(shas)));
 
@@ -58,13 +68,16 @@ describe('indexStep', () => {
       status: vi.fn().mockResolvedValue({ status: 'complete', output: {} }),
     });
 
+    await mockEnv.DB.exec("INSERT INTO repo (owner, name) VALUES ('test-owner','test-repo')")
+    await mockEnv.DB.exec("INSERT INTO workflow_run (id, status, repo_id) VALUES ('test-instance-id', 'running', 1)")
+
     const result = await indexStep(mockEnv, ctx, {
       instanceId,
       payload: { owner, repo, pathMap: shas, githubTokenRef },
       timestamp: new Date(),
     } as WorkflowEvent<IndexWorkflowParams>);
 
-    // Assertions
+    // Assertions for index workflow
     expect(fetchSpy).toHaveBeenCalledWith(owner, repo, expect.any(Map), githubTokenRef);
     expect(processSpy).toHaveBeenCalledWith(mockEnv, ctx, owner, repo, mockTreeResponse, expect.any(Map));
     expect(mockEnv.INDEX_WORKFLOW.createBatch).toHaveBeenCalledWith(expect.arrayContaining([
@@ -79,6 +92,15 @@ describe('indexStep', () => {
     expect(kvPutSpy).toHaveBeenCalledWith(instanceId, 'child-workflow-1');
     expect(kvDeleteSpy).toHaveBeenCalledWith(instanceId);
     expect(result).toBe(Object.keys(shas).length);
+
+    // Assertions for embed workflow
+    expect(mockEnv.EMBED_WORKFLOW.create).toHaveBeenCalledWith(expect.objectContaining({
+      params: {
+        owner,
+        repo,
+        githubTokenRef
+      }
+    }));
   });
 
   it('handles existing child workflows', async () => {
@@ -92,6 +114,9 @@ describe('indexStep', () => {
         status: vi.fn().mockResolvedValue({ status: 'complete', output: {} }),
       }));
 
+    await mockEnv.DB.exec("INSERT INTO repo (owner, name) VALUES ('test-owner','test-repo')")
+    await mockEnv.DB.exec("INSERT INTO workflow_run (id, status, repo_id) VALUES ('test-instance-id', 'running', 1)")
+
     // Execute the indexStep function
     const result = await indexStep(mockEnv, ctx, {
       instanceId,
@@ -103,6 +128,37 @@ describe('indexStep', () => {
     expect(result).toBe(Object.keys(shas).length);
     expect(mockEnv.INDEX_WORKFLOW.createBatch).not.toHaveBeenCalled();
     expect(kvPutSpy).not.toHaveBeenCalled();
+    expect(mockEnv.EMBED_WORKFLOW.create).toHaveBeenCalled();
+  });
+
+  it('skips embed workflow if workflow_run id does not match', async () => {
+    // Mock DB to return a different workflow run ID
+    mockEnv.DB.prepare = vi.fn().mockReturnValue({
+      bind: vi.fn().mockReturnValue({
+        first: vi.fn().mockResolvedValue({ id: 'different-id' })
+      })
+    });
+
+    await mockEnv.DB.exec("INSERT INTO repo (owner, name) VALUES ('test-owner','test-repo')");
+    await mockEnv.DB.exec("INSERT INTO workflow_run (id, status, repo_id) VALUES ('test-instance-id2', 'running', 1)");
+
+    // Mock the INDEX_WORKFLOW.get function to return the status of existing child workflows
+    (mockEnv.INDEX_WORKFLOW.get as Mock)
+      .mockImplementation((id: string) => ({
+        id,
+        status: vi.fn().mockResolvedValue({ status: 'complete', output: {} }),
+      }));
+
+    const fetchSpy = vi.spyOn(GithubStep, 'fetchTrees').mockResolvedValue([new Map(Object.entries(shas)), mockTreeResponse])
+    const processSpy = vi.spyOn(TreeStep, 'processTree').mockResolvedValue(new Map(Object.entries(shas)));
+
+    await indexStep(mockEnv, ctx, {
+      instanceId,
+      payload: { owner, repo, pathMap: shas, githubTokenRef },
+      timestamp: new Date(),
+    } as WorkflowEvent<IndexWorkflowParams>);
+
+    expect(mockEnv.EMBED_WORKFLOW.create).not.toHaveBeenCalled();
   });
 
   it('handles errors in fetchTrees', async () => {
@@ -122,6 +178,7 @@ describe('indexStep', () => {
     expect(mockEnv.INDEX_WORKFLOW.createBatch).not.toHaveBeenCalled();
     expect(kvPutSpy).not.toHaveBeenCalled();
     expect(kvDeleteSpy).not.toHaveBeenCalled();
+    expect(mockEnv.EMBED_WORKFLOW.create).not.toHaveBeenCalled();
   });
 
   it('handles errors in processTree', async () => {
@@ -141,5 +198,6 @@ describe('indexStep', () => {
     expect(mockEnv.INDEX_WORKFLOW.createBatch).not.toHaveBeenCalled();
     expect(kvPutSpy).not.toHaveBeenCalled();
     expect(kvDeleteSpy).not.toHaveBeenCalled();
+    expect(mockEnv.EMBED_WORKFLOW.create).not.toHaveBeenCalled();
   });
 });

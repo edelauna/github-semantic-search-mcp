@@ -52,6 +52,26 @@ const spawnIndexChildWorkflow = async (env: Env, pathMap: Map<string, string>, o
   return childWorkflows.map(c => c.id)
 }
 
+const callEmbedWorkflow = async (env: Env, ctx: ExecutionContext, instanceId: string, owner: string, repo: string, githubTokenRef: string) => {
+  const result = await env.DB.prepare("SELECT workflow_run.id from workflow_run " +
+    "JOIN repo ON repo.id = workflow_run.repo_id " +
+    "WHERE status = 'running' AND repo.owner = ? AND repo.name = ?"
+  ).bind(owner, repo).first<{ id: string }>()
+
+  if (result?.id == instanceId) {
+    log.info('callEmbedWorfklow', `Calling embed workflow for ${owner}/${repo}`)
+    ctx.waitUntil(env.EMBED_WORKFLOW.create({
+      id: crypto.randomUUID(),
+      params: {
+        owner,
+        repo,
+        githubTokenRef
+      }
+    }))
+  }
+
+}
+
 export const indexStep = async (env: Env, ctx: ExecutionContext, event: WorkflowEvent<IndexWorkflowParams>) => {
   const { instanceId } = event
   const { owner, repo, githubTokenRef } = event.payload
@@ -68,7 +88,7 @@ export const indexStep = async (env: Env, ctx: ExecutionContext, event: Workflow
 
   await waitOnComplete(env, childWorkflows)
 
-  // TODO: call embed workflow once parent has completed
+  await callEmbedWorkflow(env, ctx, instanceId, owner, repo, githubTokenRef)
 
   ctx.waitUntil(env.WORKFLOW_STATE.delete(instanceId))
 
