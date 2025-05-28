@@ -1,4 +1,5 @@
 import { handleMCP } from './handlers/mcp.handler';
+import { log } from './utils/logging.utils';
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -29,7 +30,7 @@ export default {
         });
       }
     } catch (e) {
-      console.error(e)
+      log.error('index', 'Internal Server Error', e);
       return new Response("Internal Server Error", {
         status: 500,
         headers

@@ -4,6 +4,7 @@ import { DOCUMENTS_MAX_TOKENS } from '../../../services/document.service';
 import { checkRepoAccess } from '../../../utils/github.util';
 import { checkWorkflowStatus, triggerIndexing } from '../../../services/workflow.service';
 import { branch, EMBEDDING_MODEL } from '../../../services/embed.service';
+import { log } from '../../../utils/logging.utils';
 
 const MAX_TOKENS = DOCUMENTS_MAX_TOKENS;
 
@@ -106,7 +107,7 @@ export async function handleGitHubSemanticSearch(
     };
 
   } catch (error) {
-    console.error('Error in GitHub semantic search:', error);
+    log.error('handleGitHubSemanticSearch', 'Error in GitHub semantic search:', error);
     return {
       content: [{
         type: "text",

@@ -1,4 +1,5 @@
 import { encode } from 'gpt-tokenizer';
+import { log } from '../utils/logging.utils';
 
 export type TokenizedDocument = {
   text: string,
@@ -40,7 +41,7 @@ export const makeDocuments = (message: string): TokenizedDocument[] => {
     }
 
     if (currentTokens > DOCUMENTS_MAX_TOKENS) {
-      console.warn(`Document:line ${lineNumber} exceeds limits ` +
+      log.warn('makeDocuments', `Document:line ${lineNumber} exceeds limits ` +
         `(tokens: ${currentTokens}/${DOCUMENTS_MAX_TOKENS}), skipping`
       );
       if (startLineNumber == lineNumber) {

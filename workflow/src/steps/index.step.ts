@@ -3,6 +3,7 @@ import { IndexWorkflowParams } from "../workflows/index-repo.workflow";
 import { wait } from "../utils/wait";
 import { fetchTrees } from "./github.step";
 import { processTree } from "./tree.step";
+import { log } from "../utils/logging.utils";
 
 const waitOnComplete = async (env: Env, instances: string[],) => {
   const terminalStates = ["errored",
@@ -17,7 +18,7 @@ const waitOnComplete = async (env: Env, instances: string[],) => {
     if (!terminalStates.includes(status)) {
       instances.push(newInstance.id)
     } else {
-      console.log(`[+]\tWorkflow:${newInstance.id}:output:`, output)
+      log.info('waitOnComplete', `Workflow ${newInstance.id} completed`, { status, output });
     }
   }
 }
@@ -46,7 +47,7 @@ const spawnIndexChildWorkflow = async (env: Env, pathMap: Map<string, string>, o
     params: IndexWorkflowParams;
   }[])
 
-  const childWorkflows = await env.INDEX_WORKFLOW.createBatch(batch)
+  const childWorkflows = (batch.length > 0) ? await env.INDEX_WORKFLOW.createBatch(batch) : []
 
   return childWorkflows.map(c => c.id)
 }

@@ -17,21 +17,25 @@ const mockTreeResponse: Result = {
         { name: '.github', oid: 'c8579eec19b3ef983a7bd62942833c418f4d8fd3', type: 'tree' },
         { name: '.gitignore', oid: '6e8266afe8fd798dd3a4ee3f79a7dce0e574639d', type: 'blob' },
         { name: 'Dockerfile', oid: '50c1e8c007b34cf5ad0ac62047310b59507da70f', type: 'blob' },
-        { name: 'LICENSE.md', oid: 'c2b4f00ae95a5a454537a7c2b1af76a74ef1b485', type: 'blob' },
-        { name: 'README.md', oid: 'e0e6977940b8a13b7b2f1b2b8244041a35079d85', type: 'blob' },
-        { name: 'bin', oid: '8ef73875b73801b745e27681f16a825bee29c100', type: 'tree' },
-        { name: 'conf', oid: '42312f10d63a083f5b19b404af452c3f3803a9bc', type: 'tree' },
-        { name: 'db', oid: 'd564d0bc3dd917926892c55e3706cc116d5b165e', type: 'tree' },
-        { name: 'eslint.config.mjs', oid: 'ae2aca9e68f8701e76376754c924bb00db842c97', type: 'blob' },
-        { name: 'jest.config.js', oid: '975ac5db6925bca89c6ff60af449f76b49258d5b', type: 'blob' },
-        { name: 'knexfile.ts', oid: '6e6fca853d941480d0b41e95e3c1c49fa7bc3f1c', type: 'blob' },
-        { name: 'logs', oid: 'd564d0bc3dd917926892c55e3706cc116d5b165e', type: 'tree' },
-        { name: 'migrations', oid: 'ab666fde165a0ff4746920b8aa544d571de63a04', type: 'tree' },
-        { name: 'nodemon.json', oid: '8a00b91e646159a2f2b71646028b6023058bf135', type: 'blob' },
-        { name: 'package-lock.json', oid: 'f14796da231af56715c0c3c17dca46af30faa705', type: 'blob' },
-        { name: 'package.json', oid: 'e76f3a2305aa0ab825d6a33a2fd9ce61aa8169b9', type: 'blob' },
+      ],
+    },
+  },
+};
+
+const mockMultiTreeResponse: Result = {
+  repository: {
+    batch_0: {
+      __typename: 'Tree',
+      oid: 'f092fb3d8c118f86e13e0d5c3416c69806fc8b8d',
+      entries: [
+        { name: '.github', oid: 'c8579eec19b3ef983a7bd62942833c418f4d8fd3', type: 'tree' },
+      ],
+    },
+    batch_1: {
+      __typename: 'Tree',
+      oid: 'a9c111b6e7bb19dafafdb9386290e6d0aebfc88e',
+      entries: [
         { name: 'src', oid: 'b34801f93167afec4e5e87eab0d4bf65c6b3ee02', type: 'tree' },
-        { name: 'tsconfig.json', oid: 'eb4e0090c424732f3806e93bb93c0d837fa110b0', type: 'blob' },
       ],
     },
   },
@@ -52,7 +56,7 @@ describe('github step specs', () => {
   afterAll(() => fetchMock.enableNetConnect())
 
   describe('fetchTrees', () => {
-    it('should fetch trees successfully', async () => {
+    it('should fetch single tree successfully', async () => {
       // Mock the fetch response
       fetchMock.get('https://api.github.com')
         .intercept({
@@ -83,12 +87,45 @@ describe('github step specs', () => {
       // Check the structure of the result
       expect(result.repository?.batch_0).toBeDefined();
       expect(result.repository?.batch_0?.__typename).toBe('Tree');
-      expect((result.repository?.batch_0 as Tree).entries).toHaveLength(18);
+      expect((result.repository?.batch_0 as Tree).entries).toHaveLength(3);
       expect((result.repository?.batch_0 as Tree).entries?.[0]).toEqual({
         name: '.github',
         oid: 'c8579eec19b3ef983a7bd62942833c418f4d8fd3',
         type: 'tree',
       });
+    });
+
+    it('should fetch multiple trees successfully with incrementing batch IDs', async () => {
+      // Mock the fetch response
+      fetchMock.get('https://api.github.com')
+        .intercept({
+          path: '/graphql',
+          method: 'POST'
+        })
+        .reply(200, { data: mockMultiTreeResponse, errors: null });
+
+      // Test data with multiple paths
+      const owner = 'testOwner';
+      const repo = 'testRepo';
+      const shas = new Map<string, string>([
+        ['/', 'HEAD:'],
+        ['/src', 'b34801f93167afec4e5e87eab0d4bf65c6b3ee02'],
+      ]);
+
+      // Call the function
+      const [pathMap, result] = await fetchTrees(owner, repo, shas, githubTokenRef);
+
+      // Check the returned pathMap has correct batch IDs
+      expect(pathMap).toEqual(new Map([
+        ['batch_0', '/'],
+        ['batch_1', '/src'],
+      ]));
+
+      // Verify both trees are in the result
+      expect(result.repository?.batch_0).toBeDefined();
+      expect(result.repository?.batch_1).toBeDefined();
+      expect(result.repository?.batch_0?.__typename).toBe('Tree');
+      expect(result.repository?.batch_1?.__typename).toBe('Tree');
     });
 
     it('should retry on failure and eventually succeed', async () => {
@@ -154,7 +191,7 @@ describe('github step specs', () => {
         .reply(200, { data: mockResponse });
 
       const owner = 'edelauna';
-      const repo = 'discord-bot-ai';
+      const repo = 'github-semantic-search-mcp';
       const oidMap = { '1': '50c1e8c007b34cf5ad0ac62047310b59507da70f', '2': 'c2b4f00ae95a5a454537a7c2b1af76a74ef1b485' };
 
       // Call the function

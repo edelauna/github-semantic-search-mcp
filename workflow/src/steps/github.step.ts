@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { Result } from "../types/github.graphql.types";
 import { decryptedString } from "../utils/crpyto.utils";
+import { log } from "../utils/logging.utils";
 
 type FetchVariables = {
   owner: string,
@@ -16,6 +17,7 @@ export const fetchTrees = async (owner: string, repo: string, shas: Map<string, 
     repo,
   };
 
+  log.debug('fetchTrees', `Fetching trees for ${owner}/${repo}`, { pathCount: shas.size });
   return [pathMap, await makeBatchGraphQLRequest(query, variables, githubTokenRef)];
 }
 
@@ -43,6 +45,7 @@ const buildQuery = (treeMap: Map<string, string>): [string, Map<string, string>]
       }
     `;
     batchMap.set(batchId, path);
+    index++;
   }
 
   queryBuilder += `
@@ -50,6 +53,7 @@ const buildQuery = (treeMap: Map<string, string>): [string, Map<string, string>]
     }
   `;
 
+  log.debug('buildQuery', `Built GraphQL query with ${index} batch items`);
   return [queryBuilder, batchMap];
 }
 
@@ -62,6 +66,8 @@ const makeBatchGraphQLRequest = async (query: string, variables: FetchVariables,
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
+      log.debug('makeBatchGraphQLRequest', `Attempt ${attempt + 1}/${maxRetries}`, variables);
+
       const response = await fetch(GITHUB_GRAPHQL_URL, {
         method: 'POST',
         headers: headers,
@@ -75,15 +81,18 @@ const makeBatchGraphQLRequest = async (query: string, variables: FetchVariables,
       const result = await response.json<{ data: Result, errors: any[] }>();
 
       if (result.errors && result.errors.length > 0) {
+        log.error('makeBatchGraphQLRequest', 'GraphQL request failed', result.errors);
         throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
       }
 
+      log.debug('makeBatchGraphQLRequest', 'Request successful');
       return result.data;
     } catch (error: any) {
       if (attempt === maxRetries - 1) {
-
+        log.error('makeBatchGraphQLRequest', `Failed after ${maxRetries} attempts`, error);
         throw new Error(`Failed to fetch data after ${maxRetries} attempts: ${error.message}`);
       }
+      log.warn('makeBatchGraphQLRequest', `Attempt ${attempt + 1} failed, retrying...`, error);
       // Exponential backoff with jitter
       const delay = Math.min(1000 * Math.pow(2, attempt), 30000) + Math.random() * 1000;
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -91,7 +100,6 @@ const makeBatchGraphQLRequest = async (query: string, variables: FetchVariables,
   }
   throw new Error('Unexpected error in makeBatchGraphQLRequest');
 }
-
 
 const buildTextQuery = (oidMap: { [key: string]: string }) => {
   const queryParts = []
@@ -114,10 +122,12 @@ const buildTextQuery = (oidMap: { [key: string]: string }) => {
     )
   })
   queryParts.push('}}')
+  log.debug('buildTextQuery', `Built text query for ${Object.keys(oidMap).length} objects`);
   return queryParts.join('')
 }
 
 export const fetchText = (owner: string, repo: string, oidMap: { [key: string]: string }, githubTokenRef: string) => {
+  log.debug('fetchText', `Fetching text content for ${owner}/${repo}`, { objectCount: Object.keys(oidMap).length });
   const query = buildTextQuery(oidMap)
   const variables = {
     owner,

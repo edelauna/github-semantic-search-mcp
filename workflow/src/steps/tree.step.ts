@@ -1,6 +1,7 @@
 import { deleteVectors } from "../services/vector.service";
 import { Result, Tree } from "../types/github.graphql.types";
 import { RepoEntry } from "../types/types";
+import { log } from "../utils/logging.utils";
 
 const compareAndPrune = (env: Env, ctx: ExecutionContext, oldTreeIds: Map<string, RepoEntry>, newTree: Tree) => {
   const newIds = new Map(newTree.entries?.map(entry => [entry.oid, entry]) || []);
@@ -15,8 +16,14 @@ const compareAndPrune = (env: Env, ctx: ExecutionContext, oldTreeIds: Map<string
     }
   }
 
-  if (batch.length > 0) ctx.waitUntil(env.DB.batch(batch))
-  if (recordsToDelete.length > 0) ctx.waitUntil(deleteVectors(env, ctx, recordsToDelete))
+  if (batch.length > 0) {
+    log.info('compareAndPrune', `Deleting ${batch.length} outdated entries`);
+    ctx.waitUntil(env.DB.batch(batch))
+  }
+  if (recordsToDelete.length > 0) {
+    log.info('compareAndPrune', `Deleting ${recordsToDelete.length} vector records`);
+    ctx.waitUntil(deleteVectors(env, ctx, recordsToDelete))
+  }
 }
 
 const fetchCurrentTreeFromDb = async (env: Env, path: string, owner: string, repo: string): Promise<Map<string, RepoEntry>> => {
@@ -47,7 +54,7 @@ const fetchCurrentTreeFromDb = async (env: Env, path: string, owner: string, rep
 
 const checkForDeltas = async (env: Env, ctx: ExecutionContext, newTreeData: Tree, path: string, owner: string, repo: string): Promise<Map<string, RepoEntry>> => {
   const oldTreeIds = await fetchCurrentTreeFromDb(env, path, owner, repo);
-  console.log('[+]\tcheckForDeltas, oldTreeIds: ', oldTreeIds)
+  log.debug('checkForDeltas', `Found existing tree entries for path: ${path}`, oldTreeIds);
   compareAndPrune(env, ctx, oldTreeIds, newTreeData);
   return oldTreeIds;
 }
@@ -66,7 +73,7 @@ export const processTree = async (
   const repoId = (await env.DB.prepare("SELECT id FROM repo WHERE name = ? and owner = ?")
     .bind(repo, owner).first<{ id: number }>())?.id
 
-  console.log('[+]\tRepoId: ', repoId)
+  log.info('processTree', `Processing repository: ${owner}/${repo}`, { repoId });
   if (!repoId) throw new Error(`Missing repoId for (owner, name) -> (${owner}, ${repo})`)
 
   for (const [key, treeDataNode] of Object.entries(repository || {})) {
@@ -84,7 +91,6 @@ export const processTree = async (
     const batch: D1PreparedStatement[] = [];
 
     const promises = tree.entries?.map(async item => {
-      console.log('[+]\tTree Processing: ', item)
       const path = `${basePath}${item.name}`;
 
       if (['tree', 'blob'].includes(item.type)) {
@@ -92,12 +98,15 @@ export const processTree = async (
           'WHERE re.repo_id = ? AND path = ?'
         ).bind(repoId, basePath.replace(/\/$/, '')).first<{ id: number }>()
 
-        console.log('[-]\tparentTree: ', parentTree)
         if (!parentTree) {
           // this is expected at the root node
-          console.log(`[-]\tParent tree not found for oid: ${treeOid}`);
-          console.log(`[-]\tItem at path: ${path}, oid: ${item.oid}`);
+          log.debug('processTree', `No parent tree found (expected for root)`, {
+            treeOid,
+            path,
+            itemOid: item.oid
+          });
         }
+
         if (!oldTreeIds.has(item.oid)) {
           batch.push(stmt.bind(repoId, item.oid, path, item.type, parentTree?.id ?? null))
         }
@@ -109,7 +118,10 @@ export const processTree = async (
     });
     await Promise.all(promises ?? [])
 
-    if (batch.length > 0) ctx.waitUntil(env.DB.batch(batch))
+    if (batch.length > 0) {
+      log.info('processTree', `Batching ${batch.length} new entries for insertion`);
+      ctx.waitUntil(env.DB.batch(batch))
+    }
   }
 
   return newTreeIds;

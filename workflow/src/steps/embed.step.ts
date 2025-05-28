@@ -1,5 +1,6 @@
 import { updateVectors } from "../services/vector.service"
 import { RepoEntry } from "../types/types"
+import { log } from "../utils/logging.utils"
 
 const BATCH_SIZE = 10
 const CONCURRENCY = 8
@@ -40,6 +41,9 @@ const logResults = async (env: Env, arr: Promise<RepoEntry[]>[]) => {
   const batch = data.reduce((acc, records) =>
     [...acc, ...records.map(x => stmt.bind(x.id))], [] as D1PreparedStatement[])
 
-  if (batch.length > 0) await env.DB.batch(batch)
+  if (batch.length > 0) {
+    log.info('logResults', `Recording completion status for ${batch.length} embeddings`);
+    await env.DB.batch(batch)
+  }
   arr.length = 0
 }

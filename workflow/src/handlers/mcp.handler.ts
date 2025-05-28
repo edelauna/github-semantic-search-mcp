@@ -8,6 +8,7 @@ import {
   COMMON_HEADERS
 } from "./protocol";
 import { handleToolsCall, handleToolsList } from "./tools/tools.handler";
+import { log } from "../utils/logging.utils";
 
 interface SSEMessage {
   id?: string;
@@ -63,7 +64,7 @@ function createSSEStream() {
         const serialized = serializeMessage(message);
         controller.enqueue(serialized);
       } catch (error) {
-        console.error('Error serializing SSE message:', error);
+        log.error('createSSEStream', 'Error serializing SSE message', error);
         controller.error(error);
       }
     }
@@ -104,7 +105,7 @@ async function writeMessages(
       await writer.write(message);
     }
   } catch (error) {
-    console.error('Error writing SSE messages:', error);
+    log.error('writeMessages', 'Error writing SSE messages', error);
     const errorMessage: SSEMessage = {
       id: crypto.randomUUID(),
       event: "error",
@@ -146,7 +147,7 @@ async function* processToolCall(message: JsonRpcMessage): SSEMessageAsyncGenerat
 
 const processMessage = async (message: JsonRpcMessage) => {
   const { id, method } = message;
-  console.log(`Processing message with method: ${method}, id: ${id}`);
+  log.info('processMessage', `Processing message`, { method, id });
 
   if (!method) {
     return jsonRpcResponse(id, null, { code: -32600, message: "Invalid request: method is required" });
@@ -155,23 +156,23 @@ const processMessage = async (message: JsonRpcMessage) => {
   try {
     switch (method) {
       case "initialize":
-        console.log("Handling initialize request");
+        log.debug('processMessage', "Handling initialize request");
         return handleInitialize(message);
       case "notifications/initialized":
-        console.log("Handling notifications/initialized");
+        log.debug('processMessage', "Handling notifications/initialized");
         return jsonRpcResponse(id, null);
       case "tools/list":
-        console.log("Handling tools/list request");
+        log.debug('processMessage', "Handling tools/list request");
         return handleToolsList(message);
       case "tools/call":
-        console.log("Handling tools/call request");
+        log.debug('processMessage', "Handling tools/call request");
         return await handleToolsCall(message);
       default:
-        console.log(`Handling unknown method: ${method}`);
+        log.warn('processMessage', `Unknown method received: ${method}`);
         return handleUnknownMethod(message);
     }
   } catch (error) {
-    console.error(`Error processing message: ${error}`);
+    log.error('processMessage', `Error processing message`, error);
     return jsonRpcResponse(id, null, {
       code: -32603,
       message: "Internal error",
@@ -197,7 +198,7 @@ const handleUnknownMethod = (message: JsonRpcMessage) => {
 
 export const handleMCP = async (request: Request): Promise<Response> => {
   const sessionId = request.headers.get('Mcp-Session-Id') || crypto.randomUUID();
-  console.log(`MCP endpoint hit for sessionId: ${sessionId}`);
+  log.info('handleMCP', `MCP endpoint hit for sessionId: ${sessionId}`);
 
   // Handle GET requests (SSE stream setup)
   if (request.method === 'GET') {
@@ -237,8 +238,6 @@ export const handleMCP = async (request: Request): Promise<Response> => {
     try {
       const message = await request.text();
       const jsonMessage: JsonRpcMessage = JSON.parse(message);
-      console.log('Received message:', jsonMessage);
-
       // Handle initialization request
       if (jsonMessage.method === 'initialize') {
         const response = handleInitialize(jsonMessage);
@@ -255,7 +254,7 @@ export const handleMCP = async (request: Request): Promise<Response> => {
       // Handle notifications
       if (!jsonMessage.id) {
         if (jsonMessage.method === 'notifications/initialized') {
-          console.log('Received initialized notification');
+          log.info('handleMCP', 'Received initialized notification');
         }
         return new Response(null, {
           status: 202,
@@ -291,7 +290,7 @@ export const handleMCP = async (request: Request): Promise<Response> => {
       });
 
     } catch (error) {
-      console.error(`Error processing POST request: ${error}`);
+      log.error('handleMCP', `Error processing POST request`, error);
       return new Response(JSON.stringify({
         jsonrpc: "2.0",
         error: {
