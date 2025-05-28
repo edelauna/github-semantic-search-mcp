@@ -1,3 +1,4 @@
+import { deleteVectors } from "../services/vector.service";
 import { Result, Tree } from "../types/github.graphql.types";
 import { RepoEntry } from "../types/types";
 
@@ -6,15 +7,16 @@ const compareAndPrune = (env: Env, ctx: ExecutionContext, oldTreeIds: Map<string
 
   const stmt = env.DB.prepare('DELETE FROM repo_entry where id = ?')
   const batch = []
-  console.log('New Ids: ', newIds)
-  console.log('oldTreeIds: ', oldTreeIds)
+  const recordsToDelete = []
   for (const [oid, oldItem] of oldTreeIds) {
     if (!newIds.has(oid)) {
       batch.push(stmt.bind(oldItem.id))
+      recordsToDelete.push(oldItem)
     }
   }
-  // TODO: delete from vector db
+
   if (batch.length > 0) ctx.waitUntil(env.DB.batch(batch))
+  if (recordsToDelete.length > 0) ctx.waitUntil(deleteVectors(env, ctx, recordsToDelete))
 }
 
 const fetchCurrentTreeFromDb = async (env: Env, path: string, owner: string, repo: string): Promise<Map<string, RepoEntry>> => {

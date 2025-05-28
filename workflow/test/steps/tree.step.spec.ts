@@ -1,8 +1,13 @@
 import { env, createExecutionContext } from "cloudflare:test";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Result } from "../../src/types/github.graphql.types";
 import { processTree } from '../../src/steps/tree.step';
 import { RepoEntry } from "../../src/types/types";
+import * as VectorService from '../../src/services/vector.service';
+
+const mockDeleteVectors = vi.fn(async (_env: Env, _ctx: ExecutionContext, _input: RepoEntry[]) => { })
+
+vi.spyOn(VectorService, 'deleteVectors').mockImplementation(mockDeleteVectors)
 
 const setup = async () => {
   await env.DB.exec("INSERT INTO repo(owner, name) VALUES ('testOwner', 'testRepo')");
@@ -113,6 +118,7 @@ describe('processTree', () => {
       type: 'blob',
       parent_repo_entry: null
     })
+    expect(mockDeleteVectors).toHaveBeenCalledTimes(1)
   });
 
   it('handles missing repoId gracefully', async () => {
