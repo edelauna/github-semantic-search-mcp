@@ -26,3 +26,24 @@ export type WorkflowRun = {
   'created_at': string,
   'last_updated_at': string,
 }
+
+export type Vector = {
+  'id': string,
+  'embeddings': string,
+  'oid': string,
+  'branch': string,
+  'path': string,
+  'repo_id': number
+}
+
+export type VectorizeVector = {
+  'id': string,
+  'values': number[],
+  'metadata': {
+    'oid': string,
+    'branch': string,
+    'owner': string,
+    'repo': string,
+    'path': string
+  }
+}

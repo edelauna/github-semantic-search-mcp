@@ -13,6 +13,6 @@ CREATE TABLE repo_entry(
   path TEXT,
   type TEXT,
   parent_repo_entry INTEGER,
-  FOREIGN KEY (repo_id) REFERENCES repo(id),
+  FOREIGN KEY (repo_id) REFERENCES repo(id) ON DELETE CASCADE,
   FOREIGN KEY (parent_repo_entry) REFERENCES repo_entry(id)
 );

@@ -4,7 +4,7 @@ CREATE TABLE workflow_run (
     id TEXT PRIMARY KEY,
     repo_id INTEGER NOT NULL,
     status TEXT NOT NULL,      -- e.g., "running", "completed", "failed", "cancelled"
-    created_at DATETIME NOT NULL DEFAULT DATETIME('now'),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_updated_at DATETIME,
-    FOREIGN KEY (repo_id) REFERENCES repo(id)
+    FOREIGN KEY (repo_id) REFERENCES repo(id) ON DELETE CASCADE
 );

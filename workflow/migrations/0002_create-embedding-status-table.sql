@@ -3,5 +3,5 @@
 CREATE TABLE embedding_status (
   repo_entry_id INTEGER PRIMARY KEY,
   completed_at DATETIME,
-  FOREIGN KEY (repo_entry_id) REFERENCES repo_entry(id)
+  FOREIGN KEY (repo_entry_id) REFERENCES repo_entry(id) ON DELETE CASCADE
 );
