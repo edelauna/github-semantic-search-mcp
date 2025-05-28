@@ -1,4 +1,4 @@
-import { createEmbeddings } from "../services/embed.service"
+import { updateVectors } from "../services/vector.service"
 import { RepoEntry } from "../types/types"
 
 const BATCH_SIZE = 10
@@ -23,7 +23,7 @@ export const doEmbeddings = async (env: Env, owner: string, repo: string, github
       hasMore = false
     } else {
       idIndex = results[results.length - 1].id
-      queue.push(createEmbeddings(env, owner, repo, results, githubTokenRef))
+      queue.push(updateVectors(env, owner, repo, results, githubTokenRef))
     }
 
     if (queue.length >= CONCURRENCY) {
