@@ -3,6 +3,7 @@ import { RepoEntry } from "../types/types"
 import { GithubObjectBlob } from "../types/github.graphql.types"
 import { makeDocuments, TokenizedDocument } from "../services/document.service"
 import { generateKey } from "../utils/shared-key"
+import { saveVectors } from "./vector.service"
 
 // TODO: parameterize this
 export const branch = 'HEAD'
@@ -50,7 +51,7 @@ export const createEmbeddings = async (env: Env, owner: string, repo: string, re
         path
       }
     }))
-    await env.VECTORIZE.insert(vectors)
+    await saveVectors(env, vectors)
     await Promise.all(storagePromises)
   }
   return records

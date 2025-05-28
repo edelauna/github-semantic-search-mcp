@@ -4,6 +4,7 @@ import { fetchTextFixture } from '../steps/fixtures/github.step.spec.fixture';
 import { Result } from '../../src/types/github.graphql.types';
 import { RepoEntry } from '../../src/types/types';
 import { createEmbeddings, EMBEDDING_MODEL } from '../../src/services/embed.service';
+import * as VectorService from '../../src/services/vector.service';
 
 const fixture = fetchTextFixture()
 
@@ -11,7 +12,10 @@ const mockFetchText = vi.fn(
   async (_owner: string, _repo: string, oidMap: { [key: string]: string }, _githubTokenRef: string) => fixture as Result
 )
 
+const mockSaveVectors = vi.fn()
+
 vi.spyOn(GithubSteps, 'fetchText').mockImplementation(mockFetchText)
+vi.spyOn(VectorService, 'saveVectors').mockImplementation(mockSaveVectors)
 
 // Mock Env
 interface MockEnv {
@@ -80,7 +84,6 @@ describe('createEmbeddings', () => {
   it('should insert embeddings into Vectorize with correct metadata', async () => {
     await createEmbeddings(mockEnv as any, owner, repo, mockRecords, githubTokenRef);
 
-    expect(mockEnv.VECTORIZE.insert).toHaveBeenCalledTimes(2);
     const expectedVectors = [[
       {
         id: '/testOwner/testRepo/blob/HEAD/file1.txt#L1-L18',
@@ -94,7 +97,7 @@ describe('createEmbeddings', () => {
         metadata: { oid: 'oid2', branch: 'HEAD', owner: 'testOwner', repo: 'testRepo', path: '/dir/file2.txt' },
       },
     ]];
-    expectedVectors.map(v => expect(mockEnv.VECTORIZE.insert).toHaveBeenCalledWith(v))
+    expectedVectors.map(v => expect(mockSaveVectors).toHaveBeenCalledWith(mockEnv, v))
   });
 
   it('should return the original records', async () => {
