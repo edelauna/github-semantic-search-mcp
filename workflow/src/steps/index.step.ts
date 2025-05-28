@@ -52,13 +52,14 @@ const spawnIndexChildWorkflow = async (env: Env, pathMap: Map<string, string>, o
   return childWorkflows.map(c => c.id)
 }
 
-const callEmbedWorkflow = async (env: Env, ctx: ExecutionContext, instanceId: string, owner: string, repo: string, githubTokenRef: string) => {
-  const result = await env.DB.prepare("SELECT workflow_run.id from workflow_run " +
-    "JOIN repo ON repo.id = workflow_run.repo_id " +
-    "WHERE status = 'running' AND repo.owner = ? AND repo.name = ?"
-  ).bind(owner, repo).first<{ id: string }>()
+const isParentWorkflow = async (env: Env, instanceId: string) => {
+  const result = await env.DB.prepare("SELECT id from workflow_run WHERE id = ?"
+  ).bind(instanceId).first<{ id: string }>()
+  return result?.id == instanceId
+}
 
-  if (result?.id == instanceId) {
+const callEmbedWorkflow = async (env: Env, ctx: ExecutionContext, instanceId: string, owner: string, repo: string, githubTokenRef: string) => {
+  if (await isParentWorkflow(env, instanceId)) {
     log.info('callEmbedWorfklow', `Calling embed workflow for ${owner}/${repo}`)
     ctx.waitUntil(env.EMBED_WORKFLOW.create({
       id: crypto.randomUUID(),
@@ -72,7 +73,13 @@ const callEmbedWorkflow = async (env: Env, ctx: ExecutionContext, instanceId: st
 
 }
 
-export const indexStep = async (env: Env, ctx: ExecutionContext, event: WorkflowEvent<IndexWorkflowParams>) => {
+const updateWorkflowRun = async (env: Env, instanceId: string, status: string) => {
+  if (await isParentWorkflow(env, instanceId)) {
+    await env.DB.prepare("UPDATE workflow_run SET status = ? WHERE id = ?").bind(status, instanceId).run()
+  }
+}
+
+const run = async (env: Env, ctx: ExecutionContext, event: WorkflowEvent<IndexWorkflowParams>) => {
   const { instanceId } = event
   const { owner, repo, githubTokenRef } = event.payload
   const shas = Object.entries(event.payload.pathMap)
@@ -93,4 +100,21 @@ export const indexStep = async (env: Env, ctx: ExecutionContext, event: Workflow
   ctx.waitUntil(env.WORKFLOW_STATE.delete(instanceId))
 
   return shas.length
+}
+
+export const indexStep = async (env: Env, ctx: ExecutionContext, event: WorkflowEvent<IndexWorkflowParams>) => {
+  const { instanceId } = event
+  try {
+    const updatePromise = updateWorkflowRun(env, instanceId, 'running')
+    const result = await run(env, ctx, event)
+    ctx.waitUntil(Promise.all([
+      updatePromise,
+      updateWorkflowRun(env, instanceId, 'complete')
+    ]))
+    return result
+  }
+  catch (error) {
+    ctx.waitUntil(updateWorkflowRun(env, instanceId, 'failed'))
+    throw error
+  }
 }

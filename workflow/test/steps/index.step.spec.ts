@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, Mock, afterEach } from 'vitest';
-import { createExecutionContext, env } from 'cloudflare:test';
+import { createExecutionContext, env, waitOnExecutionContext } from 'cloudflare:test';
 import { indexStep } from '../../src/steps/index.step';
 import { WorkflowEvent } from "cloudflare:workers";
 import { IndexWorkflowParams } from "../../src/workflows/index-repo.workflow";
@@ -101,6 +101,12 @@ describe('indexStep', () => {
         githubTokenRef
       }
     }));
+    // Verify workflow status updates
+    await waitOnExecutionContext(ctx)
+    const workflowStatus = await mockEnv.DB.prepare(
+      'SELECT status FROM workflow_run WHERE id = ?'
+    ).bind(instanceId).first<{ status: string }>()
+    expect(workflowStatus?.status).toBe('complete');
   });
 
   it('handles existing child workflows', async () => {
@@ -129,16 +135,15 @@ describe('indexStep', () => {
     expect(mockEnv.INDEX_WORKFLOW.createBatch).not.toHaveBeenCalled();
     expect(kvPutSpy).not.toHaveBeenCalled();
     expect(mockEnv.EMBED_WORKFLOW.create).toHaveBeenCalled();
+
+    await waitOnExecutionContext(ctx)
+    const workflowStatus = await mockEnv.DB.prepare(
+      'SELECT status FROM workflow_run WHERE id = ?'
+    ).bind(instanceId).first<{ status: string }>()
+    expect(workflowStatus?.status).toBe('complete');
   });
 
   it('skips embed workflow if workflow_run id does not match', async () => {
-    // Mock DB to return a different workflow run ID
-    mockEnv.DB.prepare = vi.fn().mockReturnValue({
-      bind: vi.fn().mockReturnValue({
-        first: vi.fn().mockResolvedValue({ id: 'different-id' })
-      })
-    });
-
     await mockEnv.DB.exec("INSERT INTO repo (owner, name) VALUES ('test-owner','test-repo')");
     await mockEnv.DB.exec("INSERT INTO workflow_run (id, status, repo_id) VALUES ('test-instance-id2', 'running', 1)");
 
@@ -159,11 +164,20 @@ describe('indexStep', () => {
     } as WorkflowEvent<IndexWorkflowParams>);
 
     expect(mockEnv.EMBED_WORKFLOW.create).not.toHaveBeenCalled();
+
+    await waitOnExecutionContext(ctx)
+    const workflowStatus = await mockEnv.DB.prepare(
+      'SELECT status FROM workflow_run WHERE id = ?'
+    ).bind('test-instance-id2').first<{ status: string }>()
+    expect(workflowStatus?.status).toBe('running');
   });
 
   it('handles errors in fetchTrees', async () => {
     const fetchSpy = vi.spyOn(GithubStep, 'fetchTrees').mockRejectedValue(new Error('Fetch error'));
     const processSpy = vi.spyOn(TreeStep, 'processTree')
+    await mockEnv.DB.exec("INSERT INTO repo (owner, name) VALUES ('test-owner','test-repo')");
+    await mockEnv.DB.exec("INSERT INTO workflow_run (id, status, repo_id) VALUES ('test-instance-id', 'running', 1)");
+
 
     // Execute the indexStep function and expect it to throw an error
     await expect(indexStep(mockEnv, ctx, {
@@ -179,11 +193,19 @@ describe('indexStep', () => {
     expect(kvPutSpy).not.toHaveBeenCalled();
     expect(kvDeleteSpy).not.toHaveBeenCalled();
     expect(mockEnv.EMBED_WORKFLOW.create).not.toHaveBeenCalled();
+
+    await waitOnExecutionContext(ctx)
+    const workflowStatus = await mockEnv.DB.prepare(
+      'SELECT status FROM workflow_run WHERE id = ?'
+    ).bind(instanceId).first<{ status: string }>()
+    expect(workflowStatus?.status).toBe('failed');
   });
 
   it('handles errors in processTree', async () => {
     const fetchSpy = vi.spyOn(GithubStep, 'fetchTrees').mockResolvedValue([new Map(Object.entries(shas)), mockTreeResponse]);
     const processSpy = vi.spyOn(TreeStep, 'processTree').mockRejectedValue(new Error('Process error'));
+    await mockEnv.DB.exec("INSERT INTO repo (owner, name) VALUES ('test-owner','test-repo')");
+    await mockEnv.DB.exec("INSERT INTO workflow_run (id, status, repo_id) VALUES ('test-instance-id', 'running', 1)");
 
     // Execute the indexStep function and expect it to throw an error
     await expect(indexStep(mockEnv, ctx, {
@@ -199,5 +221,11 @@ describe('indexStep', () => {
     expect(kvPutSpy).not.toHaveBeenCalled();
     expect(kvDeleteSpy).not.toHaveBeenCalled();
     expect(mockEnv.EMBED_WORKFLOW.create).not.toHaveBeenCalled();
+
+    await waitOnExecutionContext(ctx)
+    const workflowStatus = await mockEnv.DB.prepare(
+      'SELECT status FROM workflow_run WHERE id = ?'
+    ).bind(instanceId).first<{ status: string }>()
+    expect(workflowStatus?.status).toBe('failed');
   });
 });
