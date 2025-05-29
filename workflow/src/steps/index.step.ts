@@ -5,11 +5,13 @@ import { fetchTrees } from "./github.step";
 import { processTree } from "./tree.step";
 import { log } from "../utils/logging.utils";
 
+const PARENT_PREFIX = 'parent-';
+const terminalStates = ["errored",
+  "terminated", // user terminated the instance while it was running
+  "complete"
+]
+
 const waitOnComplete = async (env: Env, instances: string[],) => {
-  const terminalStates = ["errored",
-    "terminated", // user terminated the instance while it was running
-    "complete"
-  ]
   while (instances.length > 0) {
     await wait(1_000)
     const id = instances.pop()!
@@ -61,14 +63,15 @@ const isParentWorkflow = async (env: Env, instanceId: string) => {
 const callEmbedWorkflow = async (env: Env, ctx: ExecutionContext, instanceId: string, owner: string, repo: string, githubTokenRef: string) => {
   if (await isParentWorkflow(env, instanceId)) {
     log.info('callEmbedWorfklow', `Calling embed workflow for ${owner}/${repo}`)
-    ctx.waitUntil(env.EMBED_WORKFLOW.create({
+    const embedWorkflow = await env.EMBED_WORKFLOW.create({
       id: crypto.randomUUID(),
       params: {
         owner,
         repo,
         githubTokenRef
       }
-    }))
+    })
+    await env.WORKFLOW_STATE.put(PARENT_PREFIX + instanceId, embedWorkflow.id)
   }
 
 }
@@ -98,23 +101,45 @@ const run = async (env: Env, ctx: ExecutionContext, event: WorkflowEvent<IndexWo
   await callEmbedWorkflow(env, ctx, instanceId, owner, repo, githubTokenRef)
 
   ctx.waitUntil(env.WORKFLOW_STATE.delete(instanceId))
-
-  return shas.length
 }
 
 export const indexStep = async (env: Env, ctx: ExecutionContext, event: WorkflowEvent<IndexWorkflowParams>) => {
   const { instanceId } = event
   try {
     const updatePromise = updateWorkflowRun(env, instanceId, 'running')
-    const result = await run(env, ctx, event)
+
+    const embedWorkflowId = await env.WORKFLOW_STATE.get(PARENT_PREFIX + instanceId)
+    if (!embedWorkflowId) {
+      await run(env, ctx, event)
+    }
+    await waitOnEmbedWorkflow(env, instanceId)
     ctx.waitUntil(Promise.all([
       updatePromise,
       updateWorkflowRun(env, instanceId, 'complete')
     ]))
-    return result
+    ctx.waitUntil(env.WORKFLOW_STATE.delete(PARENT_PREFIX + instanceId))
+    return Object.entries(event.payload.pathMap).length
   }
   catch (error) {
     ctx.waitUntil(updateWorkflowRun(env, instanceId, 'failed'))
     throw error
+  }
+}
+
+const waitOnEmbedWorkflow = async (env: Env, instanceId: string) => {
+  const embedWorkflowId = await env.WORKFLOW_STATE.get(PARENT_PREFIX + instanceId)
+  if (!embedWorkflowId) {
+    return
+  }
+
+  log.info('waitOnEmbedWorkflow', `Waiting for embed workflow for ${instanceId}`)
+
+  while (true) {
+    await wait(1_000)
+    const { status, output } = await (await env.EMBED_WORKFLOW.get(instanceId)).status()
+    if (terminalStates.includes(status)) {
+      log.info('waitOnEmbedWorkflow', `Workflow ${instanceId} completed`, { status, output });
+      break
+    }
   }
 }

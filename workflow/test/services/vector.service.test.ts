@@ -91,6 +91,31 @@ describe('Vector Service', () => {
       expect(embedService.createEmbeddings).not.toHaveBeenCalled()
       expect(result).toEqual(records)
     })
+
+    it('should handle empty vectors result from database', async () => {
+      // Setup test data
+      const owner = 'testOwner'
+      const repo = 'testRepo'
+      const records: RepoEntry[] = [{
+        id: 1,
+        repo_id: 123,
+        oid: 'abc123',
+        path: '/test/path',
+        type: 'blob'
+      }]
+      const githubTokenRef = 'token123'
+
+      // Only insert repo, but no vectors
+      await mockEnv.DB.exec('INSERT INTO repo (id, name, owner) VALUES (123, "testRepo", "testOwner")')
+
+      // Execute test
+      const result = await updateVectors(mockEnv, owner, repo, records, githubTokenRef)
+
+      // Verify results
+      expect(mockVectorize.insert).toHaveBeenCalledWith([])
+      expect(embedService.createEmbeddings).toHaveBeenCalledWith(mockEnv, owner, repo, records, githubTokenRef)
+      expect(result).toEqual(records)
+    })
   })
 
   describe('saveVectors', async () => {
