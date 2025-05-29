@@ -3,22 +3,6 @@ import { encryptedString, decryptedString } from '../../src/utils/crpyto.utils';
 import { env } from 'cloudflare:test';
 
 describe('Crypto Utils Integration', () => {
-  beforeAll(async () => {
-    // Set up test environment with RSA key
-    const key = await crypto.subtle.generateKey(
-      {
-        name: 'RSA-OAEP',
-        modulusLength: 2048, // Or a different size
-        publicExponent: new Uint8Array([1, 0, 1]), // Equivalent to 65537
-        hash: 'SHA-256', // Specify the hash algorithm
-      },
-      true, // extractable
-      ['encrypt', 'decrypt']
-    ) as CryptoKeyPair
-
-    env.RSA_PRIVATE_KEY = JSON.stringify(await crypto.subtle.exportKey('jwk', key.privateKey));
-  });
-
   describe('encryption/decryption cycle', () => {
     it('should successfully encrypt and decrypt a string', async () => {
       const originalMessage = 'test-github-token-123';
