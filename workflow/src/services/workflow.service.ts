@@ -22,7 +22,7 @@ export const checkWorkflowStatus = async (owner: string, repo: string, db: D1Dat
     SELECT w.id, w.last_updated_at, w.status
     FROM workflow_run w
     JOIN repo r ON w.repo_id = r.id
-    WHERE r.owner = ? AND r.name = ? AND w.status = 'completed'
+    WHERE r.owner = ? AND r.name = ?
     ORDER BY w.last_updated_at DESC
     LIMIT 1
   `).bind(owner, repo).first<WorkflowRun>();
@@ -32,9 +32,9 @@ export const checkWorkflowStatus = async (owner: string, repo: string, db: D1Dat
   }
 
   const lastCompleted = result.last_updated_at;
-  const needsReindex = lastCompleted ?
-    (new Date().getTime() - new Date(lastCompleted).getTime() > ONE_DAY_MS) :
-    false;
+
+  // running workflows should not take more than day see default retry: https://developers.cloudflare.com/workflows/build/sleeping-and-retrying/#retry-steps
+  const needsReindex = new Date().getTime() - new Date(lastCompleted).getTime() > ONE_DAY_MS
 
   return {
     hasWorkflow: true,
