@@ -2,7 +2,7 @@ import { updateVectors } from "../services/vector.service"
 import { RepoEntry } from "../types/types"
 import { log } from "../utils/logging.utils"
 
-const BATCH_SIZE = 8
+export const BATCH_SIZE = 8
 const CONCURRENCY = 4
 
 export const doEmbeddings = async (env: Env, owner: string, repo: string, githubTokenRef: string) => {

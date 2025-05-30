@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { generateKey, generateURL } from '../../src/utils/shared-key'
+import { generateKey, generateURL } from '../../src/utils/shared-key.utils'
 import { env } from 'cloudflare:test'
 
 describe('shared-key utils', () => {
@@ -24,7 +24,7 @@ describe('shared-key utils', () => {
       env.DB.exec('INSERT INTO repo(id, owner, name) VALUES (123, "testowner", "testrepo")')
       env.DB.exec('INSERT INTO repo_entry(id, repo_id, oid, path, type) VALUES (456, 123, "abc123", "/src/file.ts", "blob")')
 
-      const url = await generateURL(env, '123/main/456/L10-L15')
+      const url = await generateURL(env, '/123/main/456/L10-L15')
       expect(url).toBe('https://github.com/testowner/testrepo/blob/main/src/file.ts#L10-L15')
     })
 

@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test';
 import { afterAll, beforeAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as VectorService from '../../src/services/vector.service';
-import { doEmbeddings } from '../../src/steps/embed.step';
+import { BATCH_SIZE, doEmbeddings } from '../../src/steps/embed.step';
 import { RepoEntry } from '../../src/types/types';
 
 const mockUpdateVectors = vi.fn(async (_env: Env, _owner: string, _repo: string, input: RepoEntry[]) => input)
@@ -52,7 +52,7 @@ describe('doEmbeddings', () => {
   });
 
   it('should handle multiple batches respecting concurrency', async () => {
-    const numEntries = 8 * 10 + 5;
+    const numEntries = 8 * BATCH_SIZE + 5;
     let mockResults: RepoEntry[] = Array.from({ length: numEntries }, (_, i) => ({
       id: i + 1,
       repo_id: 1,
@@ -69,7 +69,7 @@ describe('doEmbeddings', () => {
     await doEmbeddings(mockEnv as any, 'testOwner', 'testRepo', 'githubTokenRef');
 
     // It should call createEmbeddings multiple times
-    expect(mockUpdateVectors).toHaveBeenCalledTimes(Math.ceil(numEntries / 10));
+    expect(mockUpdateVectors).toHaveBeenCalledTimes(Math.ceil(numEntries / BATCH_SIZE));
 
     const { results } = await mockEnv.DB.prepare('SELECT * from embedding_status').run()
 

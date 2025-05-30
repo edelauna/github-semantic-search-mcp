@@ -7,7 +7,7 @@ export const generateKey = (repo_id: number, branch: string, id: number, lineNum
 )
 
 export const generateURL = async (env: Env, vector_id: string) => {
-  const [repo_id, branch, id, lineNumber] = vector_id.split('/')
+  const [_, repo_id, branch, id, lineNumber] = vector_id.split('/')
   const repo = await env.DB.prepare('SELECT id, owner, name FROM repo WHERE id = ?').bind(repo_id).first<Repo>()
   if (!repo) {
     log.error('generateURL', `Repo not found for id: ${repo_id}`)

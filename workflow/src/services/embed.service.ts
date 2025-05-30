@@ -2,7 +2,7 @@ import { fetchText, TEXT_BATCH_PREFIX } from "../steps/github.step"
 import { RepoEntry } from "../types/types"
 import { GithubObjectBlob } from "../types/github.graphql.types"
 import { makeDocuments, TokenizedDocument } from "../services/document.service"
-import { generateKey } from "../utils/shared-key"
+import { generateKey } from "../utils/shared-key.utils"
 import { saveVectors } from "./vector.service"
 import { log } from "../utils/logging.utils"
 
