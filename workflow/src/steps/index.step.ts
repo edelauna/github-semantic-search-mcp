@@ -132,13 +132,13 @@ const waitOnEmbedWorkflow = async (env: Env, instanceId: string) => {
     return
   }
 
-  log.info('waitOnEmbedWorkflow', `Waiting for embed workflow for ${instanceId}`)
+  log.info('waitOnEmbedWorkflow', `Waiting for embed workflow for ${embedWorkflowId}`)
 
   while (true) {
     await wait(1_000)
-    const { status, output } = await (await env.EMBED_WORKFLOW.get(instanceId)).status()
+    const { status, output } = await (await env.EMBED_WORKFLOW.get(embedWorkflowId)).status()
     if (terminalStates.includes(status)) {
-      log.info('waitOnEmbedWorkflow', `Workflow ${instanceId} completed`, { status, output });
+      log.info('waitOnEmbedWorkflow', `Workflow ${embedWorkflowId} completed`, { status, output });
       break
     }
   }

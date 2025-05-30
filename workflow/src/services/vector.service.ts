@@ -1,6 +1,6 @@
-import { env } from "cloudflare:workers";
 import { RepoEntry, Vector, VectorizeVector } from "../types/types";
 import { createEmbeddings } from "./embed.service";
+import { log } from "../utils/logging.utils";
 
 export const blobToVector = (string: string) => {
   // looks like workers don't support true blobs
@@ -56,8 +56,13 @@ export const saveVectors = async (env: Env, vectors: VectorizeVector[]) => {
   `);
   const batch = vectors.map(v => stmt.bind(v.id, vectorToBlob(v.values), v.metadata.oid, v.metadata.branch, v.metadata.path, v.metadata.owner, v.metadata.repo));
 
-  await env.DB.batch(batch)
-  await env.VECTORIZE.insert(vectors)
+  try {
+    await env.DB.batch(batch)
+    await env.VECTORIZE.insert(vectors)
+  } catch (error) {
+    log.error('saveVectors', 'Error saving vectors', error)
+    throw error
+  }
 }
 
 export const deleteVectors = async (env: Env, ctx: ExecutionContext, records: RepoEntry[]) => {

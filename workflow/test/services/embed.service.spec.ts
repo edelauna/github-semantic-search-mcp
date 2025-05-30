@@ -76,9 +76,9 @@ describe('createEmbeddings', () => {
 
     expect(mockEnv.github_semantic_search_bucket.put).toHaveBeenCalledTimes(2);
     expect(mockEnv.github_semantic_search_bucket.put).toHaveBeenNthCalledWith(
-      1, '/testOwner/testRepo/blob/HEAD/dir/file2.txt#L1-L36', fixture.repository[2].text + '\n');
+      1, '/1/HEAD/2/L1-L36', fixture.repository[2].text + '\n');
     expect(mockEnv.github_semantic_search_bucket.put).toHaveBeenNthCalledWith(
-      2, '/testOwner/testRepo/blob/HEAD/file1.txt#L1-L18', fixture.repository[1].text + '\n');
+      2, '/1/HEAD/1/L1-L18', fixture.repository[1].text + '\n');
   });
 
   it('should insert embeddings into Vectorize with correct metadata', async () => {
@@ -86,13 +86,13 @@ describe('createEmbeddings', () => {
 
     const expectedVectors = [[
       {
-        id: '/testOwner/testRepo/blob/HEAD/file1.txt#L1-L18',
+        id: '/1/HEAD/1/L1-L18',
         values: [0.1, 0.2],
         metadata: { oid: 'oid1', branch: 'HEAD', owner: 'testOwner', repo: 'testRepo', path: '/file1.txt' },
       },
     ], [
       {
-        id: '/testOwner/testRepo/blob/HEAD/dir/file2.txt#L1-L36',
+        id: '/1/HEAD/2/L1-L36',
         values: [0.1, 0.2],
         metadata: { oid: 'oid2', branch: 'HEAD', owner: 'testOwner', repo: 'testRepo', path: '/dir/file2.txt' },
       },

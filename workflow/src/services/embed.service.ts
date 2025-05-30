@@ -1,4 +1,4 @@
-import { fetchText } from "../steps/github.step"
+import { fetchText, TEXT_BATCH_PREFIX } from "../steps/github.step"
 import { RepoEntry } from "../types/types"
 import { GithubObjectBlob } from "../types/github.graphql.types"
 import { makeDocuments, TokenizedDocument } from "../services/document.service"
@@ -18,7 +18,7 @@ export const createEmbeddings = async (env: Env, owner: string, repo: string, re
   const corpus = await fetchText(owner, repo, oidMap, githubTokenRef)
   const tokenizedDocumentMap = Object.entries(corpus.repository || {}).reduce((arr: [string, TokenizedDocument[]][], [key, value]) => {
     const data = value as GithubObjectBlob
-    if (data.isBinary === false && data.text) arr.push([key, makeDocuments(data.text)])
+    if (data.isBinary === false && data.text) arr.push([key.replace(TEXT_BATCH_PREFIX, ''), makeDocuments(data.text)])
     return arr
   }, [])
 
@@ -26,7 +26,7 @@ export const createEmbeddings = async (env: Env, owner: string, repo: string, re
   // all operations are idempotent so easily restartable if a differant `records` set is passed in
   while (tokenizedDocumentMap.length > 0) {
     const [id, docs] = tokenizedDocumentMap.pop()!
-    const { path, oid } = records.filter(x => x.id == parseInt(id))![0]
+    const { path, oid, repo_id } = records.filter(x => x.id == parseInt(id))![0]
     const embeddingPromise = env.AI.run(
       EMBEDDING_MODEL,
       {
@@ -35,13 +35,13 @@ export const createEmbeddings = async (env: Env, owner: string, repo: string, re
     );
 
     const storagePromises = docs.map(d => {
-      return env.github_semantic_search_bucket.put(generateKey(owner, repo, branch, path, d.lineRange), d.text)
+      return env.github_semantic_search_bucket.put(generateKey(repo_id, branch, parseInt(id), d.lineRange), d.text)
     })
 
     const embeddings = await embeddingPromise
 
     const vectors = embeddings.data.map((item, index) => ({
-      id: generateKey(owner, repo, branch, path, docs[index].lineRange),
+      id: generateKey(repo_id, branch, parseInt(id), docs[index].lineRange),
       values: item,
       metadata: {
         oid,

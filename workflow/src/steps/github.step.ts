@@ -82,6 +82,7 @@ const makeBatchGraphQLRequest = async (query: string, variables: FetchVariables,
 
       if (result.errors && result.errors.length > 0) {
         log.error('makeBatchGraphQLRequest', 'GraphQL request failed', result.errors);
+        log.error('makeBatchGraphQLRequest', 'request body', JSON.stringify({ query, variables }));
         throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`);
       }
 
@@ -101,6 +102,8 @@ const makeBatchGraphQLRequest = async (query: string, variables: FetchVariables,
   throw new Error('Unexpected error in makeBatchGraphQLRequest');
 }
 
+export const TEXT_BATCH_PREFIX = 'b_'
+
 const buildTextQuery = (oidMap: { [key: string]: string }) => {
   const queryParts = []
   queryParts.push(`
@@ -110,7 +113,7 @@ const buildTextQuery = (oidMap: { [key: string]: string }) => {
   )
   Object.entries(oidMap).forEach(([id, oid]) => {
     queryParts.push(`
-      ${id}: object(oid: "${oid}") {
+      ${TEXT_BATCH_PREFIX}${id}: object(oid: "${oid}") {
         __typename
         ... on Blob {
           text
