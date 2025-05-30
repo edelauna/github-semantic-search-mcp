@@ -122,17 +122,21 @@ describe('GitHub Semantic Search Tool', () => {
       mockVectorizeQuery.mockResolvedValue({
         matches: [
           {
-            id: '/owner/repo/blob/HEAD/src/file1.ts#L1-L10',
+            id: '/1/HEAD/1/L1-L10',
             metadata: { path: '/src/file1.ts' },
             score: 0.95
           },
           {
-            id: '/owner/repo/blob/HEAD/src/file2.ts#L5',
+            id: '/1/HEAD/2/L5',
             metadata: { path: '/src/file2.ts' },
             score: 0.85
           }
         ]
       });
+
+      env.DB.exec('INSERT INTO repo (id, owner, name) VALUES (1, "owner", "repo")')
+      env.DB.exec('INSERT INTO repo_entry (id, repo_id, oid, path, type) VALUES (1, 1, "oid", "/src/file1.ts", "blob")')
+      env.DB.exec('INSERT INTO repo_entry (id, repo_id, oid, path, type) VALUES (2, 1, "oid", "/src/file2.ts", "blob")')
 
       // Mock bucket content
       mockBucketGet.mockImplementation((id: string) => Promise.resolve({
@@ -190,17 +194,22 @@ describe('GitHub Semantic Search Tool', () => {
       mockVectorizeQuery.mockResolvedValue({
         matches: [
           {
-            id: '/owner/repo/blob/HEAD/src/file1.ts#L1-L10',
+            id: '/1/HEAD/1/L1-L10',
             metadata: { path: '/src/file1.ts' },
             score: 0.95
           },
           {
-            id: '/owner/repo/blob/HEAD/src/file2.ts#L5',
+            id: '/1/HEAD/2/L5',
             metadata: { path: '/src/file2.ts' },
             score: 0.85
           }
         ]
       });
+
+      env.DB.exec('INSERT INTO repo (id, owner, name) VALUES (1, "owner", "repo")')
+      env.DB.exec('INSERT INTO repo_entry (id, repo_id, oid, path, type) VALUES (1, 1, "oid", "/src/file1.ts", "blob")')
+      env.DB.exec('INSERT INTO repo_entry (id, repo_id, oid, path, type) VALUES (2, 1, "oid", "/src/file2.ts", "blob")')
+
 
       // Mock bucket content
       mockBucketGet.mockImplementation((id: string) => Promise.resolve({

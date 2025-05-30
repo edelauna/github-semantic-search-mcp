@@ -1,6 +1,6 @@
-import { env } from "cloudflare:workers";
 import { RepoEntry, Vector, VectorizeVector } from "../types/types";
 import { createEmbeddings } from "./embed.service";
+import { log } from "../utils/logging.utils";
 
 export const blobToVector = (string: string) => {
   // looks like workers don't support true blobs
@@ -38,8 +38,10 @@ export const updateVectors = async (env: Env, owner: string, repo: string, recor
     return acc;
   }, { newRecords: records, vectors: [] } as { newRecords: RepoEntry[], vectors: VectorizeVector[] });
 
+  log.info('updateVectors', 'vectors', vectors.length)
   const addVectorPromise = env.VECTORIZE.insert(vectors)
   if (newRecords.length > 0) {
+    log.info('updateVectors', 'newRecords', newRecords.length)
     await createEmbeddings(env, owner, repo, newRecords, githubTokenRef)
   }
   await addVectorPromise
@@ -56,8 +58,15 @@ export const saveVectors = async (env: Env, vectors: VectorizeVector[]) => {
   `);
   const batch = vectors.map(v => stmt.bind(v.id, vectorToBlob(v.values), v.metadata.oid, v.metadata.branch, v.metadata.path, v.metadata.owner, v.metadata.repo));
 
-  await env.DB.batch(batch)
-  await env.VECTORIZE.insert(vectors)
+  try {
+    await env.DB.batch(batch)
+    await env.VECTORIZE.insert(vectors)
+  } catch (error) {
+    log.error('saveVectors', 'Error saving vectors', error)
+    log.error('saveVectors', 'batch', batch)
+    log.error('saveVectors', 'vectors', vectors)
+    throw error
+  }
 }
 
 export const deleteVectors = async (env: Env, ctx: ExecutionContext, records: RepoEntry[]) => {

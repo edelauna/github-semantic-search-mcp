@@ -5,6 +5,7 @@ import { checkRepoAccess } from '../../../utils/github.util';
 import { checkWorkflowStatus, triggerIndexing } from '../../../services/workflow.service';
 import { branch, EMBEDDING_MODEL } from '../../../services/embed.service';
 import { log } from '../../../utils/logging.utils';
+import { generateURL } from '../../../utils/shared-key.utils';
 
 const MAX_TOKENS = DOCUMENTS_MAX_TOKENS;
 
@@ -80,7 +81,7 @@ export async function handleGitHubSemanticSearch(
       if (!content) return null;
 
       // Create GitHub URL
-      const githubUrl = `https://github.com${match.id}`;
+      const githubUrl = await generateURL(env, match.id);
 
       return {
         content: await content.text(),
