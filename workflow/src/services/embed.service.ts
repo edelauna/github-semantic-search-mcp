@@ -4,6 +4,7 @@ import { GithubObjectBlob } from "../types/github.graphql.types"
 import { makeDocuments, TokenizedDocument } from "../services/document.service"
 import { generateKey } from "../utils/shared-key"
 import { saveVectors } from "./vector.service"
+import { log } from "../utils/logging.utils"
 
 // TODO: parameterize this
 export const branch = 'HEAD'
@@ -27,32 +28,37 @@ export const createEmbeddings = async (env: Env, owner: string, repo: string, re
   while (tokenizedDocumentMap.length > 0) {
     const [id, docs] = tokenizedDocumentMap.pop()!
     const { path, oid, repo_id } = records.filter(x => x.id == parseInt(id))![0]
-    const embeddingPromise = env.AI.run(
-      EMBEDDING_MODEL,
-      {
-        text: docs.map(d => d.text),
-      }
-    );
+    try {
+      const embeddingPromise = env.AI.run(
+        EMBEDDING_MODEL,
+        {
+          text: docs.map(d => d.text),
+        }
+      );
 
-    const storagePromises = docs.map(d => {
-      return env.github_semantic_search_bucket.put(generateKey(repo_id, branch, parseInt(id), d.lineRange), d.text)
-    })
+      const storagePromises = docs.map(d => {
+        return env.github_semantic_search_bucket.put(generateKey(repo_id, branch, parseInt(id), d.lineRange), d.text)
+      })
 
-    const embeddings = await embeddingPromise
+      const embeddings = await embeddingPromise
 
-    const vectors = embeddings.data.map((item, index) => ({
-      id: generateKey(repo_id, branch, parseInt(id), docs[index].lineRange),
-      values: item,
-      metadata: {
-        oid,
-        branch,
-        owner,
-        repo,
-        path
-      }
-    }))
-    await saveVectors(env, vectors)
-    await Promise.all(storagePromises)
+      const vectors = embeddings.data.map((item, index) => ({
+        id: generateKey(repo_id, branch, parseInt(id), docs[index].lineRange),
+        values: item,
+        metadata: {
+          oid,
+          branch,
+          owner,
+          repo,
+          path
+        }
+      }))
+      await saveVectors(env, vectors)
+      await Promise.all(storagePromises)
+    } catch (e) {
+      log.error('createEmbeddings', 'Error creating embeddings', e)
+      log.error('createEmbeddings', `Swallowing error for repo_entry:${id}, with docs.length`, docs.length)
+    }
   }
   return records
 }

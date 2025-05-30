@@ -38,8 +38,10 @@ export const updateVectors = async (env: Env, owner: string, repo: string, recor
     return acc;
   }, { newRecords: records, vectors: [] } as { newRecords: RepoEntry[], vectors: VectorizeVector[] });
 
+  log.info('updateVectors', 'vectors', vectors.length)
   const addVectorPromise = env.VECTORIZE.insert(vectors)
   if (newRecords.length > 0) {
+    log.info('updateVectors', 'newRecords', newRecords.length)
     await createEmbeddings(env, owner, repo, newRecords, githubTokenRef)
   }
   await addVectorPromise
@@ -61,6 +63,8 @@ export const saveVectors = async (env: Env, vectors: VectorizeVector[]) => {
     await env.VECTORIZE.insert(vectors)
   } catch (error) {
     log.error('saveVectors', 'Error saving vectors', error)
+    log.error('saveVectors', 'batch', batch)
+    log.error('saveVectors', 'vectors', vectors)
     throw error
   }
 }
