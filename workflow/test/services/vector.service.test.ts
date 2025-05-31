@@ -116,6 +116,64 @@ describe('Vector Service', () => {
       expect(embedService.createEmbeddings).toHaveBeenCalledWith(mockEnv, owner, repo, records, githubTokenRef)
       expect(result).toEqual(records)
     })
+
+    it('should filter out records with matching oid+path combination', async () => {
+      const owner = 'testOwner';
+      const repo = 'testRepo';
+      const records: RepoEntry[] = [
+        { id: 1, repo_id: 123, oid: 'abc123', path: '/test/path1', type: 'blob' },  // Exists in DB
+        { id: 2, repo_id: 123, oid: 'abc123', path: '/test/path2', type: 'blob' },  // Same oid, different path - should keep
+        { id: 3, repo_id: 123, oid: 'abc124', path: '/test/path1', type: 'blob' },  // Different oid, same path - should keep
+        { id: 4, repo_id: 123, oid: 'abc125', path: '/test/path4', type: 'blob' }   // Completely new - should keep
+      ];
+      const githubTokenRef = 'token123';
+
+      // Insert repo and vector with oid='abc123' and path='/test/path1'
+      await mockEnv.DB.exec('INSERT INTO repo (id, name, owner) VALUES (123, "testRepo", "testOwner")');
+      await mockEnv.DB.exec(
+        `INSERT INTO vectors (id, embeddings, oid, branch, path, repo_id) ` +
+        `VALUES ("vec1", "${vectorToBlob([1, 2, 3, 4])}", "abc123", "main", "/test/path1", 123)`
+      );
+
+      await updateVectors(mockEnv, owner, repo, records, githubTokenRef);
+
+      // Should call createEmbeddings with all records except the one with matching oid+path
+      expect(embedService.createEmbeddings).toHaveBeenCalledWith(
+        mockEnv,
+        owner,
+        repo,
+        [records[1], records[2], records[3]], // All except records[0] which has matching oid+path
+        githubTokenRef
+      );
+    });
+
+    it('should correctly filter out existing records by oid or path', async () => {
+      const owner = 'testOwner';
+      const repo = 'testRepo';
+      const records: RepoEntry[] = [
+        { id: 1, repo_id: 123, oid: 'abc123', path: '/test/path1', type: 'blob' },
+        { id: 2, repo_id: 123, oid: 'abc124', path: '/test/path1', type: 'blob' }, // Same path as existing
+        { id: 3, repo_id: 123, oid: 'abc123', path: '/test/path3', type: 'blob' }, // Same oid as existing
+        { id: 4, repo_id: 123, oid: 'abc125', path: '/test/path4', type: 'blob' }  // New record
+      ];
+      const githubTokenRef = 'token123';
+
+      // Insert repo and one existing vector
+      await mockEnv.DB.exec('INSERT INTO repo (id, name, owner) VALUES (123, "testRepo", "testOwner")');
+      await mockEnv.DB.exec(
+        `INSERT INTO vectors (id, embeddings, oid, branch, path, repo_id) ` +
+        `VALUES ("vec1", "${vectorToBlob([1, 2, 3, 4])}", "abc123", "main", "/test/path1", 123) ` +
+        `, ("vec2", "${vectorToBlob([1, 2, 3, 4])}", "abc124", "main", "/test/path1", 123) ` +
+        `, ("vec3", "${vectorToBlob([1, 2, 3, 4])}", "abc123", "main", "/test/path3", 123) ` +
+        `, ("vec4", "${vectorToBlob([1, 2, 3, 4])}", "abc125", "main", "/test/path4", 123) `
+      );
+
+
+      await updateVectors(mockEnv, owner, repo, records, githubTokenRef);
+
+      // Should only call createEmbeddings with records that don't match existing oid or path
+      expect(embedService.createEmbeddings).not.toHaveBeenCalled()
+    });
   })
 
   describe('saveVectors', async () => {

@@ -22,7 +22,7 @@ export const updateVectors = async (env: Env, owner: string, repo: string, recor
 
   const { newRecords, vectors } = vectorBatch.reduce((acc, { results }) => {
     results.forEach((r) => {
-      acc.newRecords = acc.newRecords.filter((f) => (f.oid !== r.oid && f.path !== r.path)); // already scoped to owner:repo
+      acc.newRecords = acc.newRecords.filter((f) => (!(f.oid === r.oid && f.path === r.path))); // already scoped to owner:repo
       acc.vectors.push({
         id: r.id,
         values: blobToVector(r.embeddings),
