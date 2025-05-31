@@ -114,7 +114,8 @@ describe('indexStep', () => {
       params: {
         owner,
         repo,
-        githubTokenRef
+        githubTokenRef,
+        idIndex: 0,
       }
     }));
 

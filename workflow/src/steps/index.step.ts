@@ -72,7 +72,8 @@ const callEmbedWorkflow = async (env: Env, ctx: ExecutionContext, instanceId: st
       params: {
         owner,
         repo,
-        githubTokenRef
+        githubTokenRef,
+        idIndex: 0,
       }
     })
     await env.WORKFLOW_STATE.put(PARENT_PREFIX + instanceId, embedWorkflow.id)
