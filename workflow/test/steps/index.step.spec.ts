@@ -69,8 +69,6 @@ describe('indexStep', () => {
     const fetchSpy = vi.spyOn(GithubStep, 'fetchTrees').mockResolvedValue([new Map(Object.entries(shas)), mockTreeResponse])
     const processSpy = vi.spyOn(TreeStep, 'processTree').mockResolvedValue(new Map(Object.entries(shas)));
 
-    (mockEnv.INDEX_WORKFLOW.createBatch as Mock).mockResolvedValue([{ id: 'child-workflow-1' }]);
-
     (mockEnv.INDEX_WORKFLOW.get as Mock).mockResolvedValue({
       id: 'child-workflow-1',
       status: vi.fn().mockResolvedValue({ status: 'complete', output: {} }),
@@ -97,7 +95,7 @@ describe('indexStep', () => {
         })
       })
     ]));
-    expect(kvPutSpy).toHaveBeenCalledWith(instanceId, 'child-workflow-1');
+    expect(kvPutSpy).toHaveBeenCalledWith(instanceId, expect.any(String));
     expect(kvPutSpy).toHaveBeenCalledWith(PARENT_PREFIX + instanceId, 'embed-workflow-1');
     expect(kvDeleteSpy).toHaveBeenCalledWith(instanceId);
     expect(result).toBe(Object.keys(shas).length);

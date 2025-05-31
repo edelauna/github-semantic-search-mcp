@@ -13,6 +13,7 @@ const terminalStates = ["errored",
 
 const waitOnComplete = async (env: Env, instances: string[],) => {
   while (instances.length > 0) {
+    log.info('waitOnComplete', `Waiting for ${instances.length} workflows to complete`, instances)
     await wait(1_000)
     const id = instances.pop()!
     const newInstance = await env.INDEX_WORKFLOW.get(id)
@@ -49,9 +50,9 @@ const spawnIndexChildWorkflow = async (env: Env, pathMap: Map<string, string>, o
     params: IndexWorkflowParams;
   }[])
 
-  const childWorkflows = (batch.length > 0) ? await env.INDEX_WORKFLOW.createBatch(batch) : []
+  await env.INDEX_WORKFLOW.createBatch(batch)
 
-  return childWorkflows.map(c => c.id)
+  return batch.map(b => b.id)
 }
 
 const isParentWorkflow = async (env: Env, instanceId: string) => {
@@ -90,6 +91,7 @@ const run = async (env: Env, ctx: ExecutionContext, event: WorkflowEvent<IndexWo
   let childWorkflows = (await env.WORKFLOW_STATE.get(instanceId))?.split(',') ?? []
 
   if (childWorkflows.length === 0) {
+    log.info('run', `Fetching trees for ${owner}/${repo}`)
     const [pathMap, treeData] = await fetchTrees(owner, repo, new Map(shas), githubTokenRef)
     const newPathMap = await processTree(env, ctx, owner, repo, treeData, pathMap)
     childWorkflows = await spawnIndexChildWorkflow(env, newPathMap, owner, repo, githubTokenRef)
@@ -104,7 +106,8 @@ const run = async (env: Env, ctx: ExecutionContext, event: WorkflowEvent<IndexWo
 }
 
 export const indexStep = async (env: Env, ctx: ExecutionContext, event: WorkflowEvent<IndexWorkflowParams>) => {
-  const { instanceId } = event
+  const { instanceId, payload } = event
+  const { githubTokenRef } = payload
   try {
     const updatePromise = updateWorkflowRun(env, instanceId, 'running')
 
@@ -112,7 +115,7 @@ export const indexStep = async (env: Env, ctx: ExecutionContext, event: Workflow
     if (!embedWorkflowId) {
       await run(env, ctx, event)
     }
-    await waitOnEmbedWorkflow(env, instanceId)
+    await waitOnEmbedWorkflow(env, instanceId, githubTokenRef)
     ctx.waitUntil(Promise.all([
       updatePromise,
       updateWorkflowRun(env, instanceId, 'complete')
@@ -126,7 +129,7 @@ export const indexStep = async (env: Env, ctx: ExecutionContext, event: Workflow
   }
 }
 
-const waitOnEmbedWorkflow = async (env: Env, instanceId: string) => {
+const waitOnEmbedWorkflow = async (env: Env, instanceId: string, githubTokenRef: string) => {
   const embedWorkflowId = await env.WORKFLOW_STATE.get(PARENT_PREFIX + instanceId)
   if (!embedWorkflowId) {
     return
@@ -139,6 +142,7 @@ const waitOnEmbedWorkflow = async (env: Env, instanceId: string) => {
     const { status, output } = await (await env.EMBED_WORKFLOW.get(embedWorkflowId)).status()
     if (terminalStates.includes(status)) {
       log.info('waitOnEmbedWorkflow', `Workflow ${embedWorkflowId} completed`, { status, output });
+      await env.WORKFLOW_STATE.delete(githubTokenRef)
       break
     }
   }
