@@ -24,9 +24,12 @@ export default {
           });
         }
       } else {
-        return new Response("Not Found", {
-          status: 404,
-          headers
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...headers,
+            'Location': 'https://github.com/edelauna/github-semantic-search-mcp/tree/dev/workflow#github-semantic-search-mcp-server'
+          }
         });
       }
     } catch (e) {

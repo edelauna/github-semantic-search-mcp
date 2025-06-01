@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "deploy": "wrangler deploy",
-    "dev": "wrangler dev --ip=0.0.0.0",
+    "dev": "wrangler dev --ip=0.0.0.0 --experimental-vectorize-bind-to-prod",
     "start": "wrangler dev",
     "test": "vitest",
     "coverage": "vitest run --coverage",
