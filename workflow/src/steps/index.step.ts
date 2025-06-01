@@ -6,6 +6,7 @@ import { processTree } from "./tree.step";
 import { log } from "../utils/logging.utils";
 
 const PARENT_PREFIX = 'parent-';
+const BATCH_SIZE = 16; // kind of have to tweak this until github graphl allows paginating TreeEntry - will exceed API limits and unable to index repos with many entries in a folder
 const terminalStates = [
   "terminated", // user terminated the instance while it was running
   "complete"
@@ -30,7 +31,7 @@ const spawnIndexChildWorkflow = async (env: Env, pathMap: Map<string, string>, o
   const newPathMapAsArray = Array.from(pathMap.entries())
 
   const batch = newPathMapAsArray.reduce((acc, [path, sha], index) => {
-    const batchIndex = Math.floor(index / 100)
+    const batchIndex = Math.floor(index / BATCH_SIZE)
 
     if (!acc[batchIndex]) acc[batchIndex] = {
       id: crypto.randomUUID(),

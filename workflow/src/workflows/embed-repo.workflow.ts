@@ -18,5 +18,11 @@ export class EmbedWorkflow extends WorkflowEntrypoint<Env, EmbedWorkflowParams> 
     if (hasMore) {
       await step.waitForEvent('embeddings-complete', { type: 'embeddings-complete' })
     }
+    if (event.payload.parentId) {
+      await step.do('send embeddings-complete event', async () => {
+        const workflowInstance = await this.env.EMBED_WORKFLOW.get(event.payload.parentId!)
+        await workflowInstance.sendEvent({ type: 'embeddings-complete', payload: null })
+      })
+    }
   }
 }

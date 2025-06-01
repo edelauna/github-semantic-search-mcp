@@ -102,17 +102,6 @@ describe('doEmbeddings', () => {
     });
   });
 
-  it('should notify parent workflow when processing with parentId', async () => {
-    const parentParams = { ...baseParams, parentId: 'parent-workflow-id' };
-
-    const hasMore = await doEmbeddings(mockEnv, parentParams, instanceId);
-
-    expect(hasMore).toBe(false);
-    expect(mockEnv.EMBED_WORKFLOW.get).toHaveBeenCalledWith('parent-workflow-id');
-    const workflowInstance = await mockEnv.EMBED_WORKFLOW.get(parentParams.parentId);
-    expect(workflowInstance.sendEvent).toHaveBeenCalledWith({ type: 'embeddings-complete', payload: null });
-  });
-
   it('should handle a full batch of entries', async () => {
     const mockResults: RepoEntry[] = Array.from({ length: BATCH_SIZE }, (_, i) => ({
       id: i + 1,

@@ -6,7 +6,7 @@ import { EmbedWorkflowParams } from "../workflows/embed-repo.workflow"
 export const BATCH_SIZE = 32
 
 export const doEmbeddings = async (env: Env, params: EmbedWorkflowParams, instanceId: string) => {
-  const { owner, repo, githubTokenRef, idIndex, parentId } = params
+  const { owner, repo, githubTokenRef, idIndex } = params
 
   let hasMore = true
 
@@ -36,10 +36,6 @@ export const doEmbeddings = async (env: Env, params: EmbedWorkflowParams, instan
       }
     })
     await logResultsPromise
-  }
-  if (parentId) {
-    const workflowInstance = await env.EMBED_WORKFLOW.get(parentId)
-    await workflowInstance.sendEvent({ type: 'embeddings-complete', payload: null })
   }
   return hasMore
 }
