@@ -34,6 +34,9 @@ describe('indexStep', () => {
   const ctx = createExecutionContext();
 
   beforeEach(async () => {
+    // Setup fake timers
+    vi.useFakeTimers();
+
     await env.WORKFLOW_STATE.delete(instanceId);
     await env.WORKFLOW_STATE.delete(PARENT_PREFIX + instanceId);
     mockEnv = {
@@ -62,8 +65,10 @@ describe('indexStep', () => {
 
   afterEach(async () => {
     await mockEnv.DB.exec('DELETE FROM repo');
-    vi.restoreAllMocks()
-  })
+    vi.restoreAllMocks();
+    // Cleanup fake timers
+    vi.useRealTimers();
+  });
 
   it('processes new workflows correctly and triggers embed workflow', async () => {
     const fetchSpy = vi.spyOn(GithubStep, 'fetchTrees').mockResolvedValue([new Map(Object.entries(shas)), mockTreeResponse])
@@ -77,11 +82,15 @@ describe('indexStep', () => {
     await mockEnv.DB.exec("INSERT INTO repo (owner, name) VALUES ('test-owner','test-repo')")
     await mockEnv.DB.exec("INSERT INTO workflow_run (id, status, repo_id) VALUES ('test-instance-id', 'running', 1)")
 
-    const result = await indexStep(mockEnv, ctx, {
+    const resultPromise = indexStep(mockEnv, ctx, {
       instanceId,
       payload: { owner, repo, pathMap: shas, githubTokenRef },
       timestamp: new Date(),
     } as WorkflowEvent<IndexWorkflowParams>);
+
+    await vi.advanceTimersByTimeAsync(35_000);
+
+    const result = await resultPromise;
 
     // Assertions for index workflow
     expect(fetchSpy).toHaveBeenCalledWith(owner, repo, expect.any(Map), githubTokenRef);
@@ -105,7 +114,8 @@ describe('indexStep', () => {
       params: {
         owner,
         repo,
-        githubTokenRef
+        githubTokenRef,
+        idIndex: 0,
       }
     }));
 
@@ -131,11 +141,15 @@ describe('indexStep', () => {
     await mockEnv.DB.exec("INSERT INTO workflow_run (id, status, repo_id) VALUES ('test-instance-id', 'running', 1)")
 
     // Execute the indexStep function
-    const result = await indexStep(mockEnv, ctx, {
+    const resultPromise = indexStep(mockEnv, ctx, {
       instanceId,
       payload: { owner, repo, pathMap: shas, githubTokenRef },
       timestamp: new Date(),
     } as WorkflowEvent<IndexWorkflowParams>);
+
+    await vi.advanceTimersByTimeAsync(35_000);
+
+    const result = await resultPromise;
 
     // Assertions
     expect(result).toBe(Object.keys(shas).length);
@@ -164,11 +178,15 @@ describe('indexStep', () => {
     const fetchSpy = vi.spyOn(GithubStep, 'fetchTrees').mockResolvedValue([new Map(Object.entries(shas)), mockTreeResponse])
     const processSpy = vi.spyOn(TreeStep, 'processTree').mockResolvedValue(new Map(Object.entries(shas)));
 
-    await indexStep(mockEnv, ctx, {
+    const resultPromise = indexStep(mockEnv, ctx, {
       instanceId,
       payload: { owner, repo, pathMap: shas, githubTokenRef },
       timestamp: new Date(),
     } as WorkflowEvent<IndexWorkflowParams>);
+
+    await vi.advanceTimersByTimeAsync(35_000);
+
+    await resultPromise;
 
     expect(mockEnv.EMBED_WORKFLOW.create).not.toHaveBeenCalled();
 
@@ -259,11 +277,16 @@ describe('indexStep', () => {
     await mockEnv.DB.exec("INSERT INTO repo (owner, name) VALUES ('test-owner','test-repo')");
     await mockEnv.DB.exec("INSERT INTO workflow_run (id, status, repo_id) VALUES ('test-instance-id', 'running', 1)");
 
-    const result = await indexStep(mockEnv, ctx, {
+    const resultPromise = indexStep(mockEnv, ctx, {
       instanceId,
       payload: { owner, repo, pathMap: shas, githubTokenRef },
       timestamp: new Date(),
     } as WorkflowEvent<IndexWorkflowParams>);
+
+    // Advance timers to skip the waits
+    await vi.advanceTimersByTimeAsync(65_000);
+
+    const result = await resultPromise;
 
     expect(result).toBe(Object.keys(shas).length);
     expect(mockEnv.EMBED_WORKFLOW.get).toHaveBeenCalledTimes(2);

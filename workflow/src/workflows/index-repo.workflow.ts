@@ -12,7 +12,9 @@ export class IndexWorkflow extends WorkflowEntrypoint<Env, IndexWorkflowParams> 
 
   async run(event: WorkflowEvent<IndexWorkflowParams>, step: WorkflowStep): Promise<number> {
     // Run the index activity
-    const filesProcessed = await step.do('run index activity', async () => {
+    const filesProcessed = await step.do('run index activity', {
+      timeout: 1000 * 60 * 60 * 24 // 24 hours
+    }, async () => {
       return await indexStep(this.env, this.ctx, event)
     });
 

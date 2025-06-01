@@ -4,8 +4,6 @@ import { scan } from '../steps/scan.step';
 interface WorkflowParams {
 }
 
-const CONCURRENT_WORKERS = 1
-
 export class ScanWorkflow extends WorkflowEntrypoint<Env, WorkflowParams> {
 
   async run(event: WorkflowEvent<WorkflowParams>, step: WorkflowStep): Promise<number> {

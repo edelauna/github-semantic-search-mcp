@@ -249,7 +249,7 @@ describe('GitHub Semantic Search Tool', () => {
             repo: { $eq: 'repo' },
             branch: { $eq: 'HEAD' }
           },
-          topK: 7,
+          topK: 5,
           returnMetadata: true
         })
       );
