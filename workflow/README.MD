@@ -1,4 +1,4 @@
-![GitHub Semantic Search Logo](docs/gss-ai-logo.jpg)
+<img src="docs/gss-ai-logo.jpg" alt="GitHub Semantic Search Logo" width="100">
 
 # Github Semantic Search MCP Server
 
@@ -19,7 +19,7 @@ I built this tool because I was getting frustrated by having to clone repos of l
 
 Once configured you'll need to direct your agent to use the tool and provide an `@owner` and `repository` name for effective tool use.
 
-<video controls src="docs/github-semantic-search-example.mp4"></video>
+[![GitHub Semantic Search Example](https://img.youtube.com/vi/jym2HQKCYCM/0.jpg)](https://www.youtube.com/watch?v=jym2HQKCYCM "GitHub Semantic Search Example")
 
 If the repository has not currently been indexed, then the tool will return an error, saying to check back later. Initial indexing takes some time, as a rough estimate it's about an hour per 1,000 files (sorry I'm throttling my AI usuage).
 
