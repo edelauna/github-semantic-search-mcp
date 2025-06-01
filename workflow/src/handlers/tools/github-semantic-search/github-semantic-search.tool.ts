@@ -35,7 +35,7 @@ export async function handleGitHubSemanticSearch(
       return {
         content: [{
           type: "text",
-          text: "The Github Token provided does not have access to this repository or the repository doesn't exist."
+          text: "The Github Token provided does not have access to this repository or the repository doesn't exist.\n\n After getting this error recheck ~/.cursor/mcp.json before running the tool again as the user may have updated the token."
         }],
         isError: true
       };
@@ -66,7 +66,7 @@ export async function handleGitHubSemanticSearch(
 
     // 5. Perform vector search
     const results = await env.VECTORIZE.query(embedding.data[0], {
-      topK: 7,
+      topK: 5, // any higher seems to result in Response closed due to conenction limit
       filter: {
         owner: { $eq: owner },
         repo: { $eq: repositoryName },
@@ -76,6 +76,7 @@ export async function handleGitHubSemanticSearch(
     });
 
     // 6. Format response
+    // - mapping downloadings is probably causing the connetion limit maye it's enqueing all connections simultaneously
     const resultContents = await Promise.all(results.matches.map(async match => {
       const content = await env.github_semantic_search_bucket.get(match.id);
       if (!content) return null;
