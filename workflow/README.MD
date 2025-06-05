@@ -25,7 +25,9 @@ If the repository has not currently been indexed, then the tool will return an e
 
 ## Does this work for Private GitHub Repositories?
 
-Yes... but you should probably fork this repo and deploy your own instance.
+Yes. If you're comfortable using [gitingest](https://github.com/cyclotruc/gitingest) for private repo's then this should be no less secure, as the tool relies on a github access token to run.
+
+I would advise for private repo's with sensitive IP to fork this repo and deploy your own instance.
 
 ## Deploying
 
