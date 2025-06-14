@@ -124,9 +124,9 @@ async function writeMessages(
   }
 }
 
-async function* processToolCall(message: JsonRpcMessage): SSEMessageAsyncGenerator {
+async function* processToolCall(message: JsonRpcMessage, headers: Headers): SSEMessageAsyncGenerator {
   try {
-    const response = await handleToolsCall(message);
+    const response = await handleToolsCall(message, headers);
     yield {
       id: crypto.randomUUID(),
       event: "message",
@@ -145,7 +145,7 @@ async function* processToolCall(message: JsonRpcMessage): SSEMessageAsyncGenerat
   }
 }
 
-const processMessage = async (message: JsonRpcMessage) => {
+const processMessage = async (message: JsonRpcMessage, headers: Headers) => {
   const { id, method } = message;
   log.info('processMessage', `Processing message`, { method, id });
 
@@ -166,7 +166,7 @@ const processMessage = async (message: JsonRpcMessage) => {
         return handleToolsList(message);
       case "tools/call":
         log.debug('processMessage', "Handling tools/call request");
-        return await handleToolsCall(message);
+        return await handleToolsCall(message, headers);
       default:
         log.warn('processMessage', `Unknown method received: ${method}`);
         return handleUnknownMethod(message);
@@ -265,7 +265,7 @@ export const handleMCP = async (request: Request): Promise<Response> => {
       // Handle tool calls with SSE streaming
       if (jsonMessage.method === 'tools/call') {
         const stream = createSSEStream();
-        writeMessages(stream, processToolCall(jsonMessage));
+        writeMessages(stream, processToolCall(jsonMessage, request.headers));
 
         return new Response(stream.readable, {
           headers: {
@@ -279,7 +279,7 @@ export const handleMCP = async (request: Request): Promise<Response> => {
       }
 
       // Handle other requests
-      const response = await processMessage(jsonMessage);
+      const response = await processMessage(jsonMessage, request.headers);
       return new Response(JSON.stringify(response), {
         status: 200,
         headers: {

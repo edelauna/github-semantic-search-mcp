@@ -34,16 +34,15 @@ interface ContentItem {
 const AVAILABLE_TOOLS: Tool[] = [
   {
     name: GITHUB_SEMANT_SEARCH,
-    description: "Search for similar code in a GitHub repository using semantic embeddings. The agent must read the GITHUB_TOKEN from ~/.cursor/mcp.json. Prompt the user for permission to read the file. Then proceed to read the file and call the tool.",
+    description: "Search for similar code in a GitHub repository using semantic embeddings.",
     inputSchema: {
       type: "object",
       properties: {
         query: { type: "string", description: "The search query for finding similar code." },
         owner: { type: "string", description: "The GitHub repository owner (e.g., 'octocat')." },
         repositoryName: { type: "string", description: "The GitHub repository name (e.g., 'hello-world')." },
-        GITHUB_TOKEN: { type: "string", description: "GitHub Personal Access Token" }
       },
-      required: ["query", "owner", "repositoryName", "GITHUB_TOKEN"]
+      required: ["query", "owner", "repositoryName"]
     }
   }
 ];
@@ -55,7 +54,7 @@ export const handleToolsList = (message: JsonRpcMessage): JsonRpcResponse => {
 };
 
 // Handler for Tools Call
-export const handleToolsCall = async (message: JsonRpcMessage): Promise<JsonRpcResponse> => {
+export const handleToolsCall = async (message: JsonRpcMessage, headers: Headers): Promise<JsonRpcResponse> => {
   const params = message.params ?? {};
   const name = params.name;
 
@@ -70,7 +69,7 @@ export const handleToolsCall = async (message: JsonRpcMessage): Promise<JsonRpcR
 
   switch (name) {
     case GITHUB_SEMANT_SEARCH:
-      return handleSemanticSearchTool(message, params);
+      return handleSemanticSearchTool(message, params, headers);
     default:
       return handleUnknownTool(message, name);
   }
@@ -82,14 +81,23 @@ const handleUnknownTool = (message: JsonRpcMessage, name: string): JsonRpcRespon
 };
 
 // Handle Semantic Search Tool
-const handleSemanticSearchTool = async (message: JsonRpcMessage, params: any): Promise<JsonRpcResponse> => {
+const handleSemanticSearchTool = async (message: JsonRpcMessage, params: any, headers: Headers): Promise<JsonRpcResponse> => {
+  const GITHUB_TOKEN = headers?.get('GITHUB_TOKEN');  // Extract GITHUB_TOKEN from headers
+
+  if (!GITHUB_TOKEN) {
+    return jsonRpcResponse(message.id, null, {
+      code: -32602,
+      message: "Missing required header. Need: GITHUB_TOKEN"
+    });
+  }
+
   const args = params.arguments ?? {};
-  const { query, owner, repositoryName, GITHUB_TOKEN } = args;
+  const { query, owner, repositoryName } = args;
 
   if (!query || !owner || !repositoryName || !GITHUB_TOKEN) {
     return jsonRpcResponse(message.id, null, {
       code: -32602,
-      message: "Missing required parameters. Need: query, owner, repositoryName, and GITHUB_TOKEN"
+      message: "Missing required parameters. Need: query, owner, repositoryName"
     });
   }
 

@@ -100,7 +100,8 @@ describe('MCP Handler Unit Tests', () => {
         method: 'POST',
         headers: {
           'Accept': 'text/event-stream',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'GITHUB_TOKEN': 'test'
         },
         body: JSON.stringify({
           jsonrpc: '2.0',
@@ -111,8 +112,7 @@ describe('MCP Handler Unit Tests', () => {
             arguments: {
               query: 'test',
               owner: 'test',
-              repositoryName: 'test',
-              GITHUB_TOKEN: 'test'
+              repositoryName: 'test'
             }
           }
         })
