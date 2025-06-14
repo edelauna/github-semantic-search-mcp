@@ -51,7 +51,8 @@ describe('Tools Handler Unit Tests', () => {
         params: {}
       }
 
-      const response = await handleToolsCall(message)
+      const headers = new Headers();
+      const response = await handleToolsCall(message, headers)
 
       expect(response.jsonrpc).toBe('2.0')
       expect(response.id).toBe('1')
@@ -69,7 +70,8 @@ describe('Tools Handler Unit Tests', () => {
         }
       }
 
-      const response = await handleToolsCall(message)
+      const headers = new Headers();
+      const response = await handleToolsCall(message, headers)
 
       expect(response.jsonrpc).toBe('2.0')
       expect(response.id).toBe('1')
@@ -91,12 +93,15 @@ describe('Tools Handler Unit Tests', () => {
           }
         }
 
-        const response = await handleToolsCall(message)
+        const headers = new Headers();
+        // No GITHUB_TOKEN header set
+        const response = await handleToolsCall(message, headers)
 
         expect(response.jsonrpc).toBe('2.0')
         expect(response.id).toBe('1')
         expect(response.error).toBeDefined()
         expect(response.error?.code).toBe(-32602)
+        expect(response.error?.message).toMatch(/Missing required header. Need: GITHUB_TOKEN/)
       })
 
       it('should handle successful tool execution', async () => {
@@ -110,7 +115,6 @@ describe('Tools Handler Unit Tests', () => {
               query: 'test query',
               owner: 'test-owner',
               repositoryName: 'test-repo',
-              GITHUB_TOKEN: 'test-token'
             }
           }
         }
@@ -125,7 +129,9 @@ describe('Tools Handler Unit Tests', () => {
 
         vi.mocked(githubSearchTool.handleGitHubSemanticSearch).mockResolvedValueOnce(mockResponse)
 
-        const response = await handleToolsCall(message)
+        const headers = new Headers();
+        headers.set('GITHUB_TOKEN', 'test-token');
+        const response = await handleToolsCall(message, headers)
 
         expect(response.jsonrpc).toBe('2.0')
         expect(response.id).toBe('1')
@@ -149,8 +155,7 @@ describe('Tools Handler Unit Tests', () => {
             arguments: {
               query: 'test query',
               owner: 'test-owner',
-              repositoryName: 'test-repo',
-              GITHUB_TOKEN: 'test-token'
+              repositoryName: 'test-repo'
             }
           }
         }
@@ -158,7 +163,9 @@ describe('Tools Handler Unit Tests', () => {
         const mockError = new Error('Test error')
         vi.mocked(githubSearchTool.handleGitHubSemanticSearch).mockRejectedValueOnce(mockError)
 
-        const response = await handleToolsCall(message)
+        const headers = new Headers();
+        headers.set('GITHUB_TOKEN', 'test-token');
+        const response = await handleToolsCall(message, headers)
 
         expect(response.jsonrpc).toBe('2.0')
         expect(response.id).toBe('1')

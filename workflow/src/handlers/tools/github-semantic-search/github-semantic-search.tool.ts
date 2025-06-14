@@ -35,7 +35,7 @@ export async function handleGitHubSemanticSearch(
       return {
         content: [{
           type: "text",
-          text: "The Github Token provided does not have access to this repository or the repository doesn't exist.\n\n After getting this error recheck ~/.cursor/mcp.json before running the tool again as the user may have updated the token."
+          text: "The Github Token provided does not have access to this repository or the repository doesn't exist."
         }],
         isError: true
       };

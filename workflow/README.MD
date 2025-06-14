@@ -4,22 +4,27 @@
 
 I built this tool because I was getting frustrated by having to clone repos of libraries/APIs I'm using to be able to add them as context to the Cursor IDE (so that Cursor could use the most recent patterns). I would've preferred to just proxy GitHub search, but I (maybe also GitHub) couldn't figure out how to get reliable results based on a query. This repo hosts a remote MCP server to facilitate a RAG query against an indexed GitHub repo. Indexing is performed via Cloudflare workflows, you can access this MCP server with the following `~/.cursor/mcp.json` configuration:
 
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=github-semantic-search-server&config=eyJ1cmwiOiJodHRwczovL2dpdGh1Yi1zZWFyY2gubG9rZWVsLmNvbS9tY3AiLCJoZWFkZXJzIjp7IkdJVEhVQl9UT0tFTiI6IjxZT1VSX1RPS0VOPiJ9fQ%3D%3D)
+
+MCP Configuration
+
 ```json
 {
-  "mcpServers": {
-    "github-semantic-search": {
-      "url": "https://github-search.lokeel.com/mcp",
-      "env": {
-        "GITHUB_TOKEN": "<YOUR_TOKEN>"
-      }
-    }
-  }
+	"mcpServers": {
+		"github-semantic-search-server": {
+			"type": "streamable-http",
+			"url": "https://github-search.lokeel.com/mcp",
+			"headers": {
+				"GITHUB_TOKEN": "<YOUR_TOKEN>"
+			}
+		}
+	}
 }
 ```
 
 Once configured you'll need to direct your agent to use the tool and provide an `@owner` and `repository` name for effective tool use.
 
-[![GitHub Semantic Search Example](https://img.youtube.com/vi/jym2HQKCYCM/0.jpg)](https://www.youtube.com/watch?v=jym2HQKCYCM "GitHub Semantic Search Example")
+[![GitHub Semantic Search Example](https://img.youtube.com/vi/jym2HQKCYCM/0.jpg)](https://www.youtube.com/watch?v=jym2HQKCYCM 'GitHub Semantic Search Example')
 
 If the repository has not currently been indexed, then the tool will return an error, saying to check back later. Initial indexing takes some time, as a rough estimate it's about an hour per 1,000 files (sorry I'm throttling my AI usuage).
 
@@ -36,11 +41,13 @@ Fork this repo and add a secret for `CLOUDFLARE_API_TOKEN`. See [`@cloudflare/wr
 Set up the following Cloudflare resources and update `github-semantic-search/workflow/wrangler.toml` as needed:
 
 1. D1 Database to track workflow executions and embeddings:
+
 ```sh
 npx wrangler d1 create prod-d1-gh-sem-search
 ```
 
 2. Key Value Store for workflow state:
+
 ```sh
 npx wrangler kv namespace create WORKFLOW_STATE
 ```
@@ -50,11 +57,13 @@ npx wrangler kv namespace create WORKFLOW_STATE
 4. Vectorize (database optimized for k-nearest-neighbor queries):
 
 Main Index:
+
 ```sh
 npx wrangler vectorize create github-semantic-search-index --dimensions=384 --metric=cosine
 ```
 
 The following metadata indexes are also required since this is a single-tenanted instance for any repo:
+
 ```sh
 npx wrangler vectorize create-metadata-index github-semantic-search-index --property-name=oid --type=string
 npx wrangler vectorize create-metadata-index github-semantic-search-index --property-name=branch --type=string
@@ -66,46 +75,50 @@ npx wrangler vectorize create-metadata-index github-semantic-search-index --prop
 5. AI - This should be auto-added, just ensure there's a payment method connected to the account.
 
 6. Deploy to Cloudflare:
+
 ```sh
 npx wrangler deploy
 ```
 
 7. Add Secret Variable `RSA_PRIVATE_KEY` - this is used to encrypt sensitive data at rest.
-You can generate a key from any JS console via this code (copy the output string into the variable input):
+   You can generate a key from any JS console via this code (copy the output string into the variable input):
+
 ```js
-crypto.subtle.generateKey(
-    {
-        name: 'RSA-OAEP',
-        modulusLength: 2048,
-        publicExponent: new Uint8Array([1, 0, 1]),
-        hash: 'SHA-256',
-    },
-    true,
-    ['encrypt', 'decrypt']
-)
-.then((k) => crypto.subtle.exportKey('jwk', k.privateKey).then((out) => console.log(out)));
+crypto.subtle
+	.generateKey(
+		{
+			name: 'RSA-OAEP',
+			modulusLength: 2048,
+			publicExponent: new Uint8Array([1, 0, 1]),
+			hash: 'SHA-256',
+		},
+		true,
+		['encrypt', 'decrypt']
+	)
+	.then((k) => crypto.subtle.exportKey('jwk', k.privateKey).then((out) => console.log(out)));
 ```
 
-> [!NOTE]
-> **To Do**
-> * Better error handling for cleaning up storage + resources
-> * Tune tokenization process to see if overlapping documents results in higher quality search results
-> * Ability to roll private key to not break in-process workflows
-> * Add ability to specify `branch` or GitHub `tag` to search via specific version of a repository
+> [!NOTE] > **To Do**
+>
+> - Better error handling for cleaning up storage + resources
+> - Tune tokenization process to see if overlapping documents results in higher quality search results
+> - Ability to roll private key to not break in-process workflows
+> - Add ability to specify `branch` or GitHub `tag` to search via specific version of a repository
 
 ## Development
 
 Running `npm run dev` will start a local instance of this repo that should do everything that's possible in Cloudflare prod.
 
 > [!CAUTION]
-> * `--experimental-vectorize-bind-to-prod` flag is set when running in dev mode so any vectors generated locally will be saved in the remote vectorize db
-> * All `AI` API calls locally use [`neurons`](https://developers.cloudflare.com/workers-ai/platform/pricing/#what-are-neurons)
+>
+> - `--experimental-vectorize-bind-to-prod` flag is set when running in dev mode so any vectors generated locally will be saved in the remote vectorize db
+> - All `AI` API calls locally use [`neurons`](https://developers.cloudflare.com/workers-ai/platform/pricing/#what-are-neurons)
 
 Where possible, tests try to make use of integration API calls to Cloudflare resources.
 
 ## Issues / Vulnerabilities
 
-I feel like fundamentally the MCP server might rely a bit on a quasi prompt injection... so on that note if you encounter an issue or notice something, please add it to https://github.com/edelauna/github-semantic-search-mcp/issues
+If you encounter an issue or notice something, please add it to https://github.com/edelauna/github-semantic-search-mcp/issues
 
 ## Closing Notes
 
