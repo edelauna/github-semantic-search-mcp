@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "github-semantic-search-server": {
+      "type": "streamable-http",
+      "url": "https://github-search.lokeel.com/mcp",
+      "headers": {
+        "GITHUB_TOKEN": "{{GITHUB_TOKEN}}"
+      }
+    }
+  }
+}
