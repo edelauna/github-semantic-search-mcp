@@ -1,13 +1,17 @@
 {
   "name": "github-semantic-search-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "engines": {
     "vscode": "^1.101.0"
   },
   "publisher": "edelauna",
   "categories": [
-    "Other"
+    "AI", "Chat"
+  ],
+  "keywords": [
+    "language-model-tools",
+    "chat-participant"
   ],
   "repository": {
     "type": "git",
@@ -29,10 +33,8 @@
       }
     ]
   },
-  "keywords": [],
   "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.12.1",
+  "license": "Apache-2.0",
   "dependencies": {
     "@types/node": "^24.0.1",
     "@types/vscode": "^1.101.0",
