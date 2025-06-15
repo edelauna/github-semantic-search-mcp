@@ -2,7 +2,7 @@
 
 # Github Semantic Search MCP Server
 
-I built this tool because I was getting frustrated by having to clone repos of libraries/APIs I'm using to be able to add them as context to the Cursor IDE (so that Cursor could use the most recent patterns). I would've preferred to just proxy GitHub search, but I (maybe also GitHub) couldn't figure out how to get reliable results based on a query. This repo hosts a remote MCP server to facilitate a RAG query against an indexed GitHub repo. Indexing is performed via Cloudflare workflows, you can access this MCP server with the following `~/.cursor/mcp.json` configuration:
+I built this tool because I was getting frustrated by having to clone repos of libraries/APIs I'm using to be able to add them as context to the Cursor IDE (so that Cursor could use the most recent patterns). I would've preferred to just proxy GitHub search, but that seems to be limited to public repos via Copilot chat, and not available via graphql. This repo hosts a remote MCP server to facilitate a RAG query against an indexed GitHub repo. Indexing is performed via Cloudflare workflows, you can access this MCP server with the following `~/.cursor/mcp.json` configuration:
 
 [![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=github-semantic-search-server&config=eyJ1cmwiOiJodHRwczovL2dpdGh1Yi1zZWFyY2gubG9rZWVsLmNvbS9tY3AiLCJoZWFkZXJzIjp7IkdJVEhVQl9UT0tFTiI6IjxZT1VSX1RPS0VOPiJ9fQ%3D%3D)
 
@@ -123,5 +123,3 @@ If you encounter an issue or notice something, please add it to https://github.c
 ## Closing Notes
 
 This was a pretty cool project to work through to better understand MCPs, and although Cloudflare instrumentation and observability are pretty rough when trying to debug workflows (or I'm just spoiled with temporal and jvms), I was curious to try CF Workflows out, which kept throwing me new error limits when deployed to prod :(
-
-In regards to Cloudflare limits, doing some napkin math to deliver this kind of MCP server at scale, I'm pretty sure I found the reason why GitHub doesn't innately offer this type of search, but I can see the business case for each enterprise to host their own tenant.

@@ -1,0 +1,9 @@
+{
+  "folders": [{
+    "path": "vscode-extension"
+  }, {
+    "path": "config-packs"
+  }, {
+    "path": "workflow"
+  }]
+}
