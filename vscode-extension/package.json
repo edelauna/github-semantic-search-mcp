@@ -1,6 +1,6 @@
 {
   "name": "github-semantic-search-mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "",
   "engines": {
     "vscode": "^1.101.0"
