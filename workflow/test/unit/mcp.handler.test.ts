@@ -15,21 +15,18 @@ describe('MCP Handler Unit Tests', () => {
       const response = await handleMCP(request)
 
       expect(response.status).toBe(200)
-      expect(response.headers.get('Content-Type')).toBe('text/event-stream')
-      expect(response.headers.get('Cache-Control')).toBe('no-cache')
+      expect(response.headers.get('Content-Type')).toBe('text/event-stream; charset=utf-8')
+      expect(response.headers.get('Cache-Control')).toMatch(/s-maxage=300/)
       expect(response.headers.get('Connection')).toBe('keep-alive')
       expect(response.headers.get('Mcp-Session-Id')).toBeTruthy()
 
-      // Test SSE message format
-      const reader = response.body?.getReader()
-      if (reader) {
-        const { value } = await reader.read()
-        const text = new TextDecoder().decode(value)
-
-        expect(text).toMatch(/^id: [\w-]+\n/)
-        expect(text).toMatch(/event: open\n/)
-        expect(text).toMatch(/data: {.*"type":"connection".*}\n\n/)
-      }
+      // Test SSE message format (static content)
+      const bodyText = await response.text()
+      expect(bodyText).toContain('id: static-open-id')
+      expect(bodyText).toContain('event: open')
+      expect(bodyText).toContain('"type":"connection"')
+      expect(bodyText).toContain('"sessionId":"static-handshake"')
+      expect(bodyText).toContain('event: endpoint')
     })
 
     it('should reject non-SSE requests', async () => {

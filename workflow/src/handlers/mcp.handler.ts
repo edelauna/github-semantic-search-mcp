@@ -71,30 +71,6 @@ function createSSEStream() {
   });
 }
 
-async function* generateInitialSSEMessages(sessionId: string): SSEMessageAsyncGenerator {
-  yield {
-    id: crypto.randomUUID(),
-    event: "open",
-    data: {
-      type: "connection",
-      status: "established",
-      sessionId
-    },
-    retry: 5000
-  };
-
-  yield {
-    id: crypto.randomUUID(),
-    event: "endpoint",
-    data: {
-      endpoint: `/mcp?sessionId=${sessionId}`,
-      type: "endpoint",
-      sessionId
-    },
-    retry: 5000
-  };
-}
-
 async function writeMessages(
   stream: TransformStream<SSEMessage, Uint8Array>,
   generator: SSEMessageAsyncGenerator
@@ -210,14 +186,40 @@ export const handleMCP = async (request: Request): Promise<Response> => {
       });
     }
 
-    const stream = createSSEStream();
-    writeMessages(stream, generateInitialSSEMessages(sessionId));
+    const dummySessionId = 'static-handshake';
+    const messages = [
+      {
+        id: 'static-open-id',
+        event: "open",
+        data: {
+          type: "connection",
+          status: "established",
+          sessionId: dummySessionId
+        },
+        retry: 5000
+      },
+      {
+        id: 'static-endpoint-id',
+        event: "endpoint",
+        data: {
+          endpoint: `/mcp?sessionId=${dummySessionId}`,
+          type: "endpoint",
+          sessionId: dummySessionId
+        },
+        retry: 5000
+      }
+    ];
 
-    return new Response(stream.readable, {
+    let bodyBytes = new Uint8Array(0);
+    for (const message of messages) {
+      bodyBytes = new Uint8Array([...bodyBytes, ...serializeMessage(message)]);
+    }
+
+    return new Response(bodyBytes, {
       headers: {
         ...COMMON_HEADERS,
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=60',
         'Connection': 'keep-alive',
         'Mcp-Session-Id': sessionId
       }

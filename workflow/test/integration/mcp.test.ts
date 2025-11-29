@@ -24,8 +24,8 @@ describe('MCP Server Integration Tests', () => {
       const response = await app.fetch(request, mockEnv, mockCtx)
 
       expect(response.status).toBe(200)
-      expect(response.headers.get('Content-Type')).toBe('text/event-stream')
-      expect(response.headers.get('Cache-Control')).toBe('no-cache')
+      expect(response.headers.get('Content-Type')).toBe('text/event-stream; charset=utf-8')
+      expect(response.headers.get('Cache-Control')).toMatch(/s-maxage=300/)
       expect(response.headers.get('Connection')).toBe('keep-alive')
       expect(response.headers.get('Mcp-Session-Id')).toBeTruthy()
     })
