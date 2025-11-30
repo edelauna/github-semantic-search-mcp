@@ -27,7 +27,39 @@ export const createEmbeddings = async (env: Env, owner: string, repo: string, re
   // all operations are idempotent so easily restartable if a differant `records` set is passed in
   while (tokenizedDocumentMap.length > 0) {
     const [id, docs] = tokenizedDocumentMap.pop()!
-    const { path, oid, repo_id } = records.filter(x => x.id == parseInt(id))![0]
+    const repoEntryId = parseInt(id)
+    const { path, oid, repo_id } = records.filter(x => x.id == repoEntryId)![0]
+
+    // Check if file has too many chunks - queue for chunked processing
+    if (docs.length > 32) {
+      try {
+        // Store serialized chunks in R2
+        await env.github_semantic_search_bucket.put(`chunks/${repoEntryId}`, JSON.stringify(docs))
+
+        // Queue all chunk indices in smaller batches to avoid D1 CPU timeouts
+        const stmt = env.DB.prepare(
+          "INSERT OR IGNORE INTO chunk_queue (repo_entry_id, chunk_index) VALUES (?, ?)"
+        )
+        const QUEUE_INSERT_BATCH = 256
+        for (let i = 0; i < docs.length; i += QUEUE_INSERT_BATCH) {
+          const page = docs.slice(i, i + QUEUE_INSERT_BATCH)
+          const batch = page.map((_, idx) => stmt.bind(repoEntryId, i + idx))
+          await env.DB.batch(batch)
+        }
+
+        // Update status to processing_chunks (upsert to ensure row exists)
+        await env.DB.prepare(
+          "INSERT INTO embedding_status(repo_entry_id, status) VALUES (?, 'processing_chunks') " +
+          "ON CONFLICT(repo_entry_id) DO UPDATE SET status=excluded.status"
+        ).bind(repoEntryId).run()
+
+        log.info('createEmbeddings', `Queued ${docs.length} chunks for repo_entry ${repoEntryId}`)
+      } catch (e) {
+        log.error('createEmbeddings', `Error queuing chunks for repo_entry ${repoEntryId}`, e)
+      }
+      continue // Skip normal processing for this file
+    }
+
     try {
       const embeddingPromise = env.AI.run(
         EMBEDDING_MODEL,
@@ -37,13 +69,13 @@ export const createEmbeddings = async (env: Env, owner: string, repo: string, re
       );
 
       const storagePromises = docs.map(d => {
-        return env.github_semantic_search_bucket.put(generateKey(repo_id, branch, parseInt(id), d.lineRange), d.text)
+        return env.github_semantic_search_bucket.put(generateKey(repo_id, branch, repoEntryId, d.lineRange), d.text)
       })
 
       const embeddings = await embeddingPromise
 
       const vectors = embeddings.data.map((item, index) => ({
-        id: generateKey(repo_id, branch, parseInt(id), docs[index].lineRange),
+        id: generateKey(repo_id, branch, repoEntryId, docs[index].lineRange),
         values: item,
         metadata: {
           oid,
@@ -57,7 +89,7 @@ export const createEmbeddings = async (env: Env, owner: string, repo: string, re
       await Promise.all(storagePromises)
     } catch (e) {
       log.error('createEmbeddings', 'Error creating embeddings', e)
-      log.error('createEmbeddings', `Swallowing error for repo_entry:${id}, with docs.length`, docs.length)
+      log.error('createEmbeddings', `Swallowing error for repo_entry:${repoEntryId}, with docs.length`, docs.length)
     }
   }
   return records
