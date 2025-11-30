@@ -1,8 +1,7 @@
-import { updateVectors } from "../services/vector.service"
 import { RepoEntry } from "../types/types"
 import { log } from "../utils/logging.utils"
 import { EmbedWorkflowParams } from "../workflows/embed-repo.workflow"
-import { EMBEDDING_MODEL, branch } from "../services/embed.service"
+import { EMBEDDING_MODEL, branch, createEmbeddings } from "../services/embed.service"
 import { generateKey } from "../utils/shared-key.utils"
 import { saveVectors } from "../services/vector.service"
 import { TokenizedDocument } from "../services/document.service"
@@ -42,7 +41,7 @@ export const doEmbeddings = async (env: Env, params: EmbedWorkflowParams, instan
     hasMore = false
     env.WORKFLOW_STATE.delete(githubTokenRef)
   } else {
-    await updateVectors(env, owner, repo, results, githubTokenRef)
+    await createEmbeddings(env, owner, repo, results, githubTokenRef)
     const logResultsPromise = logResults(env, results)
 
     // Schedule next workflow if there's any work remaining (new files or chunked files)
@@ -79,56 +78,54 @@ const logResults = async (env: Env, results: RepoEntry[]) => {
 const processFileChunks = async (env: Env, file: RepoEntry & { owner: string, name: string }) => {
   const { id: repoEntryId, repo_id, oid, path, owner, name } = file
 
-  // Get unprocessed chunks (limit 32)
+  // Get unprocessed chunks
   const { results: chunks } = await env.DB.prepare(
     'SELECT chunk_index FROM chunk_queue WHERE repo_entry_id = ? AND processed = 0 ORDER BY chunk_index LIMIT ?'
   ).bind(repoEntryId, BATCH_SIZE).run<{ chunk_index: number }>()
 
-  if (chunks.length === 0) {
-    log.info('processFileChunks', `No unprocessed chunks for repo_entry ${repoEntryId}`)
-    return
-  }
 
   try {
-    // Load chunks from R2
-    const chunksData = await env.github_semantic_search_bucket.get(`chunks/${repoEntryId}`)
-    if (!chunksData) {
-      log.error('processFileChunks', `Chunks data not found for repo_entry ${repoEntryId}`)
-      return
-    }
-
-    const allDocs: TokenizedDocument[] = JSON.parse(await chunksData.text())
-    const docsToProcess = chunks.map(c => allDocs[c.chunk_index])
-
-    // Process embeddings
-    const embeddingPromise = env.AI.run(EMBEDDING_MODEL, { text: docsToProcess.map(d => d.text) })
-    const storagePromises = docsToProcess.map(d => {
-      return env.github_semantic_search_bucket.put(generateKey(repo_id, branch, repoEntryId, d.lineRange), d.text)
-    })
-
-    const embeddings = await embeddingPromise
-
-    const vectors = embeddings.data.map((item, index) => ({
-      id: generateKey(repo_id, branch, repoEntryId, docsToProcess[index].lineRange),
-      values: item,
-      metadata: {
-        oid,
-        branch,
-        owner,
-        repo: name,
-        path
+    if (chunks.length > 0) {
+      // Load chunks from R2
+      const chunksData = await env.github_semantic_search_bucket.get(`chunks/${repoEntryId}`)
+      if (!chunksData) {
+        log.error('processFileChunks', `Chunks data not found for repo_entry ${repoEntryId}`)
+        return
       }
-    }))
 
-    await saveVectors(env, vectors)
-    await Promise.all(storagePromises)
+      const allDocs: TokenizedDocument[] = JSON.parse(await chunksData.text())
+      const docsToProcess = chunks.map(c => allDocs[c.chunk_index])
 
-    // Mark chunks as processed
-    const updateStmt = env.DB.prepare(
-      'UPDATE chunk_queue SET processed = 1 WHERE repo_entry_id = ? AND chunk_index = ?'
-    )
-    const updateBatch = chunks.map(c => updateStmt.bind(repoEntryId, c.chunk_index))
-    await env.DB.batch(updateBatch)
+      // Process embeddings
+      const embeddingPromise = env.AI.run(EMBEDDING_MODEL, { text: docsToProcess.map(d => d.text) })
+      const storagePromises = docsToProcess.map(d => {
+        return env.github_semantic_search_bucket.put(generateKey(repo_id, branch, repoEntryId, d.lineRange), d.text)
+      })
+
+      const embeddings = await embeddingPromise
+
+      const vectors = embeddings.data.map((item, index) => ({
+        id: generateKey(repo_id, branch, repoEntryId, docsToProcess[index].lineRange),
+        values: item,
+        metadata: {
+          oid,
+          branch,
+          owner,
+          repo: name,
+          path
+        }
+      }))
+
+      await saveVectors(env, vectors)
+      await Promise.all(storagePromises)
+
+      // Mark chunks as processed
+      const updateStmt = env.DB.prepare(
+        'UPDATE chunk_queue SET processed = 1 WHERE repo_entry_id = ? AND chunk_index = ?'
+      )
+      const updateBatch = chunks.map(c => updateStmt.bind(repoEntryId, c.chunk_index))
+      await env.DB.batch(updateBatch)
+    }
 
     // Check if all chunks are now processed
     const { results: remaining } = await env.DB.prepare(
