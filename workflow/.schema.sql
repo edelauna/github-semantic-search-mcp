@@ -27,7 +27,7 @@ CREATE TABLE embedding_status (
 CREATE TABLE workflow_run (
     id TEXT PRIMARY KEY,
     repo_id INTEGER NOT NULL,
-    status TEXT NOT NULL,
+    status TEXT NOT NULL,      
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_updated_at DATETIME,
     FOREIGN KEY (repo_id) REFERENCES repo(id) ON DELETE CASCADE
@@ -52,3 +52,6 @@ DELETE FROM sqlite_sequence;
 CREATE INDEX idx_repo_owner_name ON repo (owner, name);
 CREATE INDEX idx_repo_entry_repo_id ON repo_entry (repo_id);
 CREATE INDEX idx_embedding_status_repo_entry_id ON embedding_status (repo_entry_id);
+CREATE INDEX idx_chunk_queue_repo_processed ON chunk_queue (repo_entry_id, processed, chunk_index);
+CREATE INDEX idx_embedding_status_status ON embedding_status (status);
+CREATE INDEX idx_vectors_oid_path_repo_id ON vectors (oid, path, repo_id);

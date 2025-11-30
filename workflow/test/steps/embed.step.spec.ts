@@ -1,15 +1,16 @@
 import { env } from 'cloudflare:test';
 import { afterAll, beforeAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as VectorService from '../../src/services/vector.service';
+import * as EmbedService from '../../src/services/embed.service';
 import { BATCH_SIZE, doEmbeddings } from '../../src/steps/embed.step';
 import { RepoEntry } from '../../src/types/types';
 import { EmbedWorkflowParams } from '../../src/workflows/embed-repo.workflow';
 import { TokenizedDocument } from '../../src/services/document.service';
 
-const mockUpdateVectors = vi.fn(async (_env: Env, _owner: string, _repo: string, input: RepoEntry[]) => input)
+const mockCreateEmbeddings = vi.fn(async (_env: Env, _owner: string, _repo: string, input: RepoEntry[], _githubTokenRef: string) => input)
 const mockSaveVectors = vi.fn(async (_env: Env, _vectors: any[]) => { })
 
-vi.spyOn(VectorService, 'updateVectors').mockImplementation(mockUpdateVectors)
+vi.spyOn(EmbedService, 'createEmbeddings').mockImplementation(mockCreateEmbeddings)
 vi.spyOn(VectorService, 'saveVectors').mockImplementation(mockSaveVectors)
 
 describe('doEmbeddings', () => {
@@ -61,7 +62,7 @@ describe('doEmbeddings', () => {
     const hasMore = await doEmbeddings(mockEnv, baseParams, instanceId);
 
     expect(hasMore).toBe(false);
-    expect(mockUpdateVectors).not.toHaveBeenCalled();
+    expect(mockCreateEmbeddings).not.toHaveBeenCalled();
     expect(mockEnv.WORKFLOW_STATE.delete).toHaveBeenCalledWith(baseParams.githubTokenRef);
     expect(mockEnv.EMBED_WORKFLOW.create).not.toHaveBeenCalled();
   });
@@ -82,8 +83,8 @@ describe('doEmbeddings', () => {
     const hasMore = await doEmbeddings(mockEnv, baseParams, instanceId);
 
     expect(hasMore).toBe(true);
-    expect(mockUpdateVectors).toHaveBeenCalledTimes(1);
-    expect(mockUpdateVectors).toHaveBeenCalledWith(
+    expect(mockCreateEmbeddings).toHaveBeenCalledTimes(1);
+    expect(mockCreateEmbeddings).toHaveBeenCalledWith(
       mockEnv,
       baseParams.owner,
       baseParams.repo,
@@ -122,8 +123,8 @@ describe('doEmbeddings', () => {
     const hasMore = await doEmbeddings(mockEnv, baseParams, instanceId);
 
     expect(hasMore).toBe(true);
-    expect(mockUpdateVectors).toHaveBeenCalledTimes(1);
-    expect(mockUpdateVectors).toHaveBeenCalledWith(
+    expect(mockCreateEmbeddings).toHaveBeenCalledTimes(1);
+    expect(mockCreateEmbeddings).toHaveBeenCalledWith(
       mockEnv,
       baseParams.owner,
       baseParams.repo,
@@ -188,7 +189,7 @@ describe('doEmbeddings', () => {
 
       expect(hasMore).toBe(true); // Workflow continues to verify completion
       // Should process chunks successfully
-      expect(mockUpdateVectors).toHaveBeenCalledWith(mockEnv, baseParams.owner, baseParams.repo, expect.any(Array), baseParams.githubTokenRef); // Called for chunks
+      expect(mockCreateEmbeddings).toHaveBeenCalledWith(mockEnv, baseParams.owner, baseParams.repo, [], baseParams.githubTokenRef); // Called with empty array for new files when only chunked files exist
 
       // Check that file status was updated to completed
       const { results: status } = await mockEnv.DB.prepare(
