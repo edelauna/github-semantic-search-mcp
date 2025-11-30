@@ -27,7 +27,7 @@ CREATE TABLE embedding_status (
 CREATE TABLE workflow_run (
     id TEXT PRIMARY KEY,
     repo_id INTEGER NOT NULL,
-    status TEXT NOT NULL,      
+    status TEXT NOT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_updated_at DATETIME,
     FOREIGN KEY (repo_id) REFERENCES repo(id) ON DELETE CASCADE
