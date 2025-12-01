@@ -298,4 +298,47 @@ describe('indexStep', () => {
     ).bind(instanceId).first<{ status: string }>();
     expect(workflowStatus?.status).toBe('complete');
   });
+
+  it('handles windowed polling with many child workflows', async () => {
+    // Set up existing child workflows exceeding WINDOW size
+    const childIds = Array.from({ length: 25 }, (_, i) => `child-${i}`);
+    await env.WORKFLOW_STATE.put(instanceId, childIds.join(','));
+
+    // Mock INDEX_WORKFLOW.get to return running status initially, then complete after some time
+    let completeCount = 0;
+    (mockEnv.INDEX_WORKFLOW.get as Mock)
+      .mockImplementation((id: string) => ({
+        id,
+        status: vi.fn().mockImplementation(() => {
+          if (completeCount < 20) {
+            completeCount++;
+            return Promise.resolve({ status: 'running', output: {} });
+          }
+          return Promise.resolve({ status: 'complete', output: {} });
+        }),
+      }));
+
+    await mockEnv.DB.exec("INSERT INTO repo (owner, name) VALUES ('test-owner','test-repo')");
+    await mockEnv.DB.exec("INSERT INTO workflow_run (id, status, repo_id) VALUES ('test-instance-id', 'running', 1)");
+
+    const resultPromise = indexStep(mockEnv, ctx, {
+      instanceId,
+      payload: { owner, repo, pathMap: shas, githubTokenRef },
+      timestamp: new Date(),
+    } as WorkflowEvent<IndexWorkflowParams>);
+
+    // Advance timers to allow multiple polling cycles (30s per cycle)
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    const result = await resultPromise;
+
+    expect(result).toBe(Object.keys(shas).length);
+    expect(mockEnv.EMBED_WORKFLOW.create).toHaveBeenCalled();
+
+    await waitOnExecutionContext(ctx);
+    const workflowStatus = await mockEnv.DB.prepare(
+      'SELECT status FROM workflow_run WHERE id = ?'
+    ).bind(instanceId).first<{ status: string }>();
+    expect(workflowStatus?.status).toBe('complete');
+  });
 });

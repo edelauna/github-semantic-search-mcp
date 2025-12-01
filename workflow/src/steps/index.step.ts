@@ -12,18 +12,25 @@ const terminalStates = [
   "complete"
 ]
 
-const waitOnComplete = async (env: Env, instances: string[],) => {
+const waitOnComplete = async (env: Env, instances: string[]) => {
+  const WINDOW = 20;
   while (instances.length > 0) {
-    log.info('waitOnComplete', `Waiting for ${instances.length} workflows to complete`, instances)
-    const id = instances.pop()!
-    const newInstance = await env.INDEX_WORKFLOW.get(id)
-    const { status, output } = await newInstance.status()
-    if (!terminalStates.includes(status)) {
-      instances.push(newInstance.id)
-      await wait(1_000)
-    } else {
-      log.info('waitOnComplete', `Workflow ${newInstance.id} completed`, { status, output });
-    }
+    log.debug('waitOnComplete', `Waiting for ${instances.length} workflows to complete`, instances.slice(0, WINDOW));
+    const slice = instances.splice(0, WINDOW);
+    const pending: string[] = [];
+    await Promise.all(slice.map(async (id) => {
+      try {
+        const inst = await env.INDEX_WORKFLOW.get(id);
+        const { status, output } = await inst.status();
+        if (!terminalStates.includes(status)) pending.push(inst.id);
+        else log.info('waitOnComplete', `Workflow ${inst.id} completed`, { status, output });
+      } catch (error) {
+        log.warn('waitOnComplete', 'Status check failed; will retry later', { id, error });
+        pending.push(id);
+      }
+    }));
+    instances.push(...Array.from(new Set(pending)));
+    if (instances.length > 0) await wait(30_000);
   }
 }
 
