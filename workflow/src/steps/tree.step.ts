@@ -90,14 +90,15 @@ export const processTree = async (
     )
     const batch: D1PreparedStatement[] = [];
 
+    // Fetch parentTree once per basePath
+    const parentTree = await env.DB.prepare('SELECT re.id FROM repo_entry re ' +
+      'WHERE re.repo_id = ? AND path = ?'
+    ).bind(repoId, basePath.replace(/\/$/, '')).first<{ id: number }>()
+
     const promises = tree.entries?.map(async item => {
       const path = `${basePath}${item.name}`;
 
       if (['tree', 'blob'].includes(item.type)) {
-        const parentTree = await env.DB.prepare('SELECT re.id FROM repo_entry re ' +
-          'WHERE re.repo_id = ? AND path = ?'
-        ).bind(repoId, basePath.replace(/\/$/, '')).first<{ id: number }>()
-
         if (!parentTree) {
           // this is expected at the root node
           log.debug('processTree', `No parent tree found (expected for root)`, {

@@ -1,5 +1,5 @@
 import { env, createExecutionContext } from "cloudflare:test";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Result } from "../../src/types/github.graphql.types";
 import { processTree } from '../../src/steps/tree.step';
 import { RepoEntry } from "../../src/types/types";
@@ -17,11 +17,12 @@ describe('processTree', () => {
   let mockCtx: ExecutionContext;
 
   beforeEach(() => {
-    // Clear the database before each test
+    mockCtx = createExecutionContext()
+  });
+
+  afterEach(() => {
     env.DB.exec(`DELETE FROM repo_entry`);
     env.DB.exec(`DELETE FROM repo`);
-
-    mockCtx = createExecutionContext()
   });
 
   it('processTreees new tree data correctly', async () => {
@@ -139,5 +140,44 @@ describe('processTree', () => {
 
     await expect(() => processTree(env, mockCtx, owner, repo, treeData, pathMap))
       .rejects.toThrow('Missing repoId for (owner, name) -> (testOwner, testRepo)');
+  });
+
+  it('fetches parentTree only once per basePath', async () => {
+    // Set up mock data with multiple entries in the same basePath
+    const owner = 'testOwner';
+    const repo = 'testRepo';
+    const treeData = {
+      repository: {
+        'HEAD:': {
+          __typename: "Tree",
+          oid: 'rootOid',
+          entries: [
+            { oid: 'entry1Oid', name: 'file1', type: 'blob' },
+            { oid: 'entry2Oid', name: 'file2', type: 'blob' },
+            { oid: 'entry3Oid', name: 'file3', type: 'blob' },
+          ],
+        },
+      },
+    } as Result;
+
+    const pathMap = new Map([['HEAD:', 'root/']]);
+
+    await setup();
+    await env.DB.exec('INSERT INTO repo_entry (repo_id, oid, path, type) ' +
+      "VALUES (1, 'rootOid', 'root', 'tree')"
+    );
+
+    // Spy on DB.prepare to count calls for parentTree query
+    const prepareSpy = vi.spyOn(env.DB, 'prepare');
+
+    await processTree(env, mockCtx, owner, repo, treeData, pathMap);
+
+    // Should have called prepare for parentTree query only once
+    const parentTreeCalls = prepareSpy.mock.calls.filter(call =>
+      call[0].includes('SELECT re.id FROM repo_entry re WHERE re.repo_id = ? AND path = ?')
+    );
+    expect(parentTreeCalls.length).toBe(1);
+
+    prepareSpy.mockRestore();
   });
 });
