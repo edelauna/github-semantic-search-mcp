@@ -318,6 +318,42 @@ describe('doEmbeddings', () => {
         }
       });
     });
+
+    it('should not prematurely mark chunked files as completed', async () => {
+      // Create a regular file that will be chunked by createEmbeddings
+      const { results: inserted } = await mockEnv.DB.prepare(
+        "INSERT INTO repo_entry(repo_id, oid, path, type) VALUES (1, 'large-oid', 'large-file.json', 'blob') RETURNING id"
+      ).run<{ id: number }>();
+      const largeFileId = inserted[0].id;
+
+      // Mock createEmbeddings to simulate chunking this file
+      mockCreateEmbeddings.mockImplementationOnce(async (env: Env, owner: string, repo: string, input: RepoEntry[], githubTokenRef: string) => {
+        // Simulate chunking the large file
+        await env.DB.exec(`
+          INSERT INTO chunk_queue(repo_entry_id, chunk_index, processed) VALUES (${largeFileId}, 0, 0)
+        `);
+        await env.DB.exec(`
+          INSERT INTO embedding_status(repo_entry_id, status) VALUES (${largeFileId}, 'processing_chunks')
+        `);
+        return input; // Return the input so logResults gets called
+      });
+
+      const hasMore = await doEmbeddings(mockEnv, baseParams, instanceId);
+
+      expect(hasMore).toBe(true);
+
+      // Verify that the chunked file was NOT marked as completed due to pending chunks
+      const { results: status } = await mockEnv.DB.prepare(
+        `SELECT status FROM embedding_status WHERE repo_entry_id = ${largeFileId}`
+      ).run<{ status: string }>();
+      expect(status[0].status).toBe('processing_chunks'); // Should still be processing_chunks, not completed
+
+      // Verify chunks still exist and are unprocessed
+      const { results: chunks } = await mockEnv.DB.prepare(
+        `SELECT COUNT(*) as count FROM chunk_queue WHERE repo_entry_id = ${largeFileId} AND processed = 0`
+      ).run<{ count: number }>();
+      expect(chunks[0].count).toBe(1); // Should have 1 unprocessed chunk
+    });
   });
 });
 
