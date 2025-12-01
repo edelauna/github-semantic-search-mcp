@@ -16,4 +16,4 @@ If the repository has not been indexed yet, the server will return an error indi
 
 This MCP server supports private GitHub repositories.
 
-For highly sensitive repositories, it is recommended to fork [https://github.com/edelauna/github-semantic-search-mcp/workflow](https://github.com/edelauna/github-semantic-search-mcp/workflow) and deploy your own instance.
+For highly sensitive repositories, it is recommended to fork [https://github.com/edelauna/github-semantic-search-mcp/workflow](https://github.com/edelauna/github-semantic-search-mcp/tree/dev/workflow#deploying) and deploy your own instance.
