@@ -18,8 +18,8 @@ export const doEmbeddings = async (env: Env, params: EmbedWorkflowParams, instan
     'SELECT re.id, re.repo_id, re.oid, re.path, r.owner, r.name ' +
     'FROM repo_entry re ' +
     'JOIN repo r ON r.id = re.repo_id ' +
-    'JOIN embedding_status es ON re.id = es.repo_entry_id ' +
-    'WHERE r.owner = ? AND r.name = ? AND es.status = \'processing_chunks\' ' +
+    'WHERE r.owner = ? AND r.name = ? ' +
+    'AND EXISTS (SELECT 1 FROM chunk_queue cq WHERE cq.repo_entry_id = re.id AND cq.processed = 0) ' +
     'ORDER BY re.id LIMIT ?'
   ).bind(owner, repo, BATCH_SIZE).run<RepoEntry & { owner: string, name: string }>()
 
@@ -65,9 +65,13 @@ export const doEmbeddings = async (env: Env, params: EmbedWorkflowParams, instan
 }
 
 const logResults = async (env: Env, results: RepoEntry[]) => {
-  const stmt = env.DB.prepare("INSERT OR REPLACE INTO embedding_status (repo_entry_id, status, completed_at) VALUES (?, 'completed', DATETIME('now'))")
+  const stmt = env.DB.prepare(`
+    INSERT OR REPLACE INTO embedding_status (repo_entry_id, status, completed_at)
+    SELECT ?, 'completed', DATETIME('now')
+    WHERE NOT EXISTS (SELECT 1 FROM chunk_queue WHERE repo_entry_id = ? AND processed = 0)
+  `)
 
-  const batch = results.map((x => stmt.bind(x.id)))
+  const batch = results.map((x => stmt.bind(x.id, x.id)))
 
   if (batch.length > 0) {
     log.info('logResults', `Recording completion status for ${batch.length} embeddings`);
