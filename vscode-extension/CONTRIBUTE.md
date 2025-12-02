@@ -11,3 +11,7 @@ You can now run these MCP servers in chat.
 # Publishing
 
 See: https://code.visualstudio.com/api/working-with-extensions/publishing-extension
+
+```sh
+npx vsce publish
+```
