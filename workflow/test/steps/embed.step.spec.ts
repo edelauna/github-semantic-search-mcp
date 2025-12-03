@@ -189,7 +189,7 @@ describe('doEmbeddings', () => {
 
       expect(hasMore).toBe(true); // Workflow continues to verify completion
       // Should process chunks successfully
-      expect(mockCreateEmbeddings).toHaveBeenCalledWith(mockEnv, baseParams.owner, baseParams.repo, [], baseParams.githubTokenRef); // Called with empty array for new files when only chunked files exist
+      expect(mockCreateEmbeddings).not.toHaveBeenCalled(); // Not called when no new files to embed
 
       // Check that file status was updated to completed
       const { results: status } = await mockEnv.DB.prepare(

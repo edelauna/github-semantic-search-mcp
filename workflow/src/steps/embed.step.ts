@@ -41,7 +41,9 @@ export const doEmbeddings = async (env: Env, params: EmbedWorkflowParams, instan
     hasMore = false
     env.WORKFLOW_STATE.delete(githubTokenRef)
   } else {
-    await createEmbeddings(env, owner, repo, results, githubTokenRef)
+    if (results.length > 0) {
+      await createEmbeddings(env, owner, repo, results, githubTokenRef)
+    }
     const logResultsPromise = logResults(env, results)
 
     // Schedule next workflow if there's any work remaining (new files or chunked files)
