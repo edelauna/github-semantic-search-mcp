@@ -32,7 +32,7 @@
     "std-env": "^3.9.0",
     "tinyglobby": "^0.2.13",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.3"
   },
   "pnpm": {
     "overrides": {
