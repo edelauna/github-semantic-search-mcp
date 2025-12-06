@@ -15,8 +15,7 @@ export const saveVectors = async (env: Env, vectors: VectorizeVector[]) => {
     await env.DB.batch(batch)
     await env.VECTORIZE.insert(vectors)
   } catch (error) {
-    log.error('saveVectors', 'Error saving vectors', error)
-    log.error('saveVectors', 'vectors', vectors)
+    log.error('saveVectors', `Error saving ${vectors.length} vectors`, error)
     throw error
   }
 }

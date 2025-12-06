@@ -17,16 +17,28 @@ export const makeDocuments = (message: string): TokenizedDocument[] => {
   const docs: TokenizedDocument[] = [];
   if (message.trim() === "") return docs;
 
+  const lines = message.split("\n");
+
   let tokenCount = 0;
   let currentLength = 0;
-  const lines = message.split("\n");
   let lineNumber = 1;
   let documentBuilder = '';
   let startLineNumber = lineNumber;
 
   for (const line of lines) {
     const lineWithNewLine = `${line}\n`;
-    const currentTokens = countTokens(lineWithNewLine);
+
+    let currentTokens: number;
+    try {
+      currentTokens = countTokens(lineWithNewLine);
+    } catch (error) {
+      log.warn('makeDocuments', `Tokenization failed for line ${lineNumber}, skipping: ${error}`);
+      if (startLineNumber == lineNumber) {
+        startLineNumber++
+      }
+      lineNumber++;
+      continue;
+    }
 
     const wouldExceedTokens = (tokenCount + currentTokens) > DOCUMENTS_MAX_TOKENS;
 
