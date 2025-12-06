@@ -28,7 +28,7 @@
     "lint-staged": "^15.5.1",
     "nodemon": "^3.1.10",
     "pathe": "^2.0.3",
-    "simple-git-hooks": "^2.13.0",
+    "simple-git-hooks": "^2.13.1",
     "std-env": "^3.9.0",
     "tinyglobby": "^0.2.13",
     "tsx": "^4.19.4",
