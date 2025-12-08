@@ -21,7 +21,7 @@
     "@antfu/eslint-config": "^4.12.0",
     "@parcel/watcher": "^2.5.1",
     "@types/node": "^22.15.3",
-    "config-rocket": "^0.5.4",
+    "config-rocket": "^0.6.4",
     "consola": "^3.4.2",
     "eslint": "^9.26.0",
     "kontroll": "^1.0.5",
