@@ -20,7 +20,7 @@
   "devDependencies": {
     "@antfu/eslint-config": "^4.12.0",
     "@parcel/watcher": "^2.5.1",
-    "@types/node": "^22.15.3",
+    "@types/node": "^24.10.1",
     "config-rocket": "^0.5.4",
     "consola": "^3.4.2",
     "eslint": "^9.26.0",
