@@ -23,7 +23,7 @@
     "@types/node": "^22.15.3",
     "config-rocket": "^0.5.4",
     "consola": "^3.4.2",
-    "eslint": "^9.26.0",
+    "eslint": "^9.39.2",
     "kontroll": "^1.0.5",
     "lint-staged": "^15.5.1",
     "nodemon": "^3.1.10",
